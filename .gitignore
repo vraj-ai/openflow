@@ -10,3 +10,5 @@ run-claude.sh
 node_modules
 todo.md
 /.worktrees
+run-pi.sh
+pi.log
