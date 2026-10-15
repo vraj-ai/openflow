@@ -1,0 +1,15 @@
+False alarm, no impact.
+
+The failed run was the early fire-and-forget **baseline check**, which the background-terminal harness runs under `sh` (dash). `dev-env.sh` uses a bash-ism (`${BASH_SOURCE[0]:-$0}`), so dash aborted with `Bad substitution`, `CARGO_HOME` was never set, and cargo fell back to `/.cargo-home` and died on permission denied before doing any work.
+
+Verified now:
+- My gate runs used the **bash tool** (`shell=/bin/bash`), so `CARGO_HOME=/workspace/openflow/.cargo-home` was set correctly and the registry cache stayed local.
+- `/.cargo-home` does not exist — nothing was created or corrupted.
+- Worktree still shows only the 5 intended files modified; `cargo test -p openflow-core` = `56 passed; 0 failed`.
+
+Lesson for this repo: background terminals execute via `sh`, so scope-sourcing `dev-env.sh` there needs an explicit `bash -c` (or a `bash -lc`) wrapper. Foreground `bash` commands are fine as-is.
+
+- `changed:` none (since last report)
+- `check:` `bash -c '. /workspace/openflow/scripts/dev-env.sh && CARGO_BUILD_JOBS=3 cargo test -p openflow-core'` → 56 passed, 0 failed
+- `next:` none
+EXIT 0

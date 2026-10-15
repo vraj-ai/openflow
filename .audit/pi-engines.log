@@ -1,0 +1,28 @@
+**changed:**
+- `crates/engines/src/lib.rs` (modules + doc comment)
+- `crates/engines/src/ort_env.rs` — `init()` OnceLock-idempotent, `session()` Level3 + `min(parallelism,8)` intra threads, cfg-gated CoreML/CUDA EPs
+- `crates/engines/src/audio.rs` — PCM16/24/32/f32 WAV → mono 16 kHz; own windowed-sinc `resample`, `to_mono`
+- `crates/engines/src/vad.rs` — `SileroVad` (512 win + 64 ctx, state carried, 0.5/0.35 hysteresis, 100 ms end, 250 ms min, 200 ms pad+merge), `trim_to_speech`
+- `crates/engines/src/parakeet.rs` — nemo128 → encoder → TDT joint greedy (token argmax + duration argmax, 10-symbol cap, blank→`max(dur,1)`)
+- `crates/engines/tests/parakeet_vad.rs` — 3 model tests `#[ignore]`, 1 always-on decode test, local WER helper
+- `Cargo.toml`: **untouched** — no new dep, rubato skipped (sinc is ~40 lines)
+
+**check:** `. /workspace/openflow/scripts/dev-env.sh && CARGO_BUILD_JOBS=3 cargo test -p openflow-engines -- --include-ignored`
+```
+running 4 tests
+test silero_finds_speech_spans_and_none_in_silence ... ok
+test wav_fixtures_decode_to_mono_16k ... ok
+test parakeet_silence_is_empty ... ok
+test parakeet_transcribes_speech_en ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.29s
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+`cargo check -p openflow-engines --all-targets` → 0 warnings. `--features coreml` host check → clean.
+
+**Parakeet:** `"mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel."` — **1088 ms** (WER 0.00 vs expected, ≤0.15 gate). Silence → `""`. Silero: speech_en spans ≥4.0 s, silence 0 spans.
+
+**coreml cross-target:** `cargo check -p openflow-engines --features coreml --target aarch64-apple-darwin` fails at `onig_sys v69.9.3` (`cc: unrecognized option '-arch'`) — no darwin cross `cc` on this box. Pre-existing: same failure **without** coreml. Not ort/coreml. My `#[cfg(feature="coreml")]` branch verified separately by deliberately breaking `CoreML::default().build()` and seeing `E0599: no method named build_zzz` under `--features coreml` — branch compiles.
+
+**next:** none (or: add llm/whisper modules later).
+EXIT 0

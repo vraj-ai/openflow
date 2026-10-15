@@ -1,0 +1,275 @@
+[
+ {
+  "id": "parakeet-tdt-0.6b-v3",
+  "kind": "stt",
+  "name": "Parakeet TDT 0.6B v3",
+  "description": "Default. 25 European languages, punctuation, very fast.",
+  "ram_mb": 1000,
+  "files": [
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce/config.json",
+    "name": "config.json",
+    "size": 97,
+    "sha256": null
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce/nemo128.onnx",
+    "name": "nemo128.onnx",
+    "size": 139764,
+    "sha256": "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f"
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce/encoder-model.int8.onnx",
+    "name": "encoder-model.int8.onnx",
+    "size": 652183999,
+    "sha256": "6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09"
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce/decoder_joint-model.int8.onnx",
+    "name": "decoder_joint-model.int8.onnx",
+    "size": 18202004,
+    "sha256": "eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70"
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce/vocab.txt",
+    "name": "vocab.txt",
+    "size": 93939,
+    "sha256": null
+   }
+  ]
+ },
+ {
+  "id": "parakeet-tdt-0.6b-v2",
+  "kind": "stt",
+  "name": "Parakeet TDT 0.6B v2",
+  "description": "English only, slightly better English accuracy.",
+  "ram_mb": 1000,
+  "files": [
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/0bbb45a3365852604aef28b538a8f066f4ccaa85/config.json",
+    "name": "config.json",
+    "size": 97,
+    "sha256": null
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/0bbb45a3365852604aef28b538a8f066f4ccaa85/nemo128.onnx",
+    "name": "nemo128.onnx",
+    "size": 139764,
+    "sha256": "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f"
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/0bbb45a3365852604aef28b538a8f066f4ccaa85/encoder-model.int8.onnx",
+    "name": "encoder-model.int8.onnx",
+    "size": 652184014,
+    "sha256": "3e0581fda6ab843888b51e56d7ee78b6d5bc3237ec113af1f732d1d5286aa155"
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/0bbb45a3365852604aef28b538a8f066f4ccaa85/decoder_joint-model.int8.onnx",
+    "name": "decoder_joint-model.int8.onnx",
+    "size": 8998286,
+    "sha256": "a449f49acd68979d418651dd2dcb737cc0f1bf0225e009e29ee326354edbf7d3"
+   },
+   {
+    "url": "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/0bbb45a3365852604aef28b538a8f066f4ccaa85/vocab.txt",
+    "name": "vocab.txt",
+    "size": 9384,
+    "sha256": null
+   }
+  ]
+ },
+ {
+  "id": "silero-vad",
+  "kind": "vad",
+  "name": "Silero VAD v5",
+  "description": "Voice activity detection; trims silence before transcription.",
+  "ram_mb": 20,
+  "files": [
+   {
+    "url": "https://huggingface.co/onnx-community/silero-vad/resolve/e71cae966052b992a7eca6b17738916ce0eca4ec/onnx/model.onnx",
+    "name": "silero_vad.onnx",
+    "size": 2243022,
+    "sha256": "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808"
+   }
+  ]
+ },
+ {
+  "id": "whisper-large-v3-turbo",
+  "kind": "multilingual",
+  "name": "Whisper large-v3-turbo",
+  "description": "Fallback for Hindi and other languages Parakeet lacks (99 languages).",
+  "ram_mb": 2000,
+  "files": [
+   {
+    "url": "https://huggingface.co/openai/whisper-large-v3-turbo/resolve/41f01f3fe87f28c78e2fbf8b568835947dd65ed9/config.json",
+    "name": "config.json",
+    "size": 1256,
+    "sha256": null
+   },
+   {
+    "url": "https://huggingface.co/openai/whisper-large-v3-turbo/resolve/41f01f3fe87f28c78e2fbf8b568835947dd65ed9/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 2710337,
+    "sha256": null
+   },
+   {
+    "url": "https://huggingface.co/openai/whisper-large-v3-turbo/resolve/41f01f3fe87f28c78e2fbf8b568835947dd65ed9/model.safetensors",
+    "name": "model.safetensors",
+    "size": 1617824864,
+    "sha256": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1"
+   }
+  ]
+ },
+ {
+  "id": "whisper-tiny",
+  "kind": "multilingual",
+  "name": "Whisper tiny",
+  "description": "Small multilingual fallback for low-memory machines.",
+  "ram_mb": 300,
+  "files": [
+   {
+    "url": "https://huggingface.co/openai/whisper-tiny/resolve/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/config.json",
+    "name": "config.json",
+    "size": 1983,
+    "sha256": null
+   },
+   {
+    "url": "https://huggingface.co/openai/whisper-tiny/resolve/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 2480466,
+    "sha256": null
+   },
+   {
+    "url": "https://huggingface.co/openai/whisper-tiny/resolve/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/model.safetensors",
+    "name": "model.safetensors",
+    "size": 151061672,
+    "sha256": "7ebd0e69e78190ffe1438491fa05cc1f5c1aa3a4c4db3bc1723adbb551ea2395"
+   }
+  ]
+ },
+ {
+  "id": "qwen3-4b-instruct-2507",
+  "kind": "llm",
+  "name": "Qwen3 4B Instruct 2507 (Q4_K_M)",
+  "description": "Default cleanup and Command Mode model for 16 GB Macs.",
+  "ram_mb": 3200,
+  "files": [
+   {
+    "url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "name": "model.gguf",
+    "size": 2497281120,
+    "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597"
+   },
+   {
+    "url": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/resolve/cdbee75f17c01a7cc42f958dc650907174af0554/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 11422654,
+    "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+   }
+  ]
+ },
+ {
+  "id": "qwen3-1.7b",
+  "kind": "llm",
+  "name": "Qwen3 1.7B (Q4_K_M)",
+  "description": "Fast option, roughly half the latency of the 4B model.",
+  "ram_mb": 1500,
+  "files": [
+   {
+    "url": "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/d7f544eead698dbd1f15126ef60b45a1e1933222/Qwen3-1.7B-Q4_K_M.gguf",
+    "name": "model.gguf",
+    "size": 1107409472,
+    "sha256": "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897"
+   },
+   {
+    "url": "https://huggingface.co/Qwen/Qwen3-1.7B/resolve/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 11422654,
+    "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+   }
+  ]
+ },
+ {
+  "id": "gemma-3-1b-it",
+  "kind": "llm",
+  "name": "Gemma 3 1B IT (Q4_K_M)",
+  "description": "Smallest option.",
+  "ram_mb": 1100,
+  "files": [
+   {
+    "url": "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/f0b45be0aac41bd6a100a4b5734cad5f67255bfb/gemma-3-1b-it-Q4_K_M.gguf",
+    "name": "model.gguf",
+    "size": 806058272,
+    "sha256": "8270790f3ab69fdfe860b7b64008d9a19986d8df7e407bb018184caa08798ebd"
+   },
+   {
+    "url": "https://huggingface.co/unsloth/gemma-3-1b-it/resolve/5b11413a10db4e486ef16a20101fd028f8f2499c/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 33384568,
+    "sha256": "4667f2089529e8e7657cfb6d1c19910ae71ff5f28aa7ab2ff2763330affad795"
+   }
+  ]
+ },
+ {
+  "id": "llama-3.2-3b-instruct",
+  "kind": "llm",
+  "name": "Llama 3.2 3B Instruct (Q4_K_M)",
+  "description": "Alternative 3B model.",
+  "ram_mb": 2600,
+  "files": [
+   {
+    "url": "https://huggingface.co/unsloth/Llama-3.2-3B-Instruct-GGUF/resolve/e7d0997e49c9cb00d88b4c1a6a16aa894b0bbc31/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+    "name": "model.gguf",
+    "size": 2019377600,
+    "sha256": "6c99cc00ae910f6a532a80022cb4bc1939094527a089c29294b841c0bd87f74d"
+   },
+   {
+    "url": "https://huggingface.co/unsloth/Llama-3.2-3B-Instruct/resolve/006f5dcd1393c3add266de40994ba96225e9689d/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 17209920,
+    "sha256": "6b9e4e7fb171f92fd137b777cc2714bf87d11576700a1dcd7a399e7bbe39537b"
+   }
+  ]
+ },
+ {
+  "id": "qwen3-8b",
+  "kind": "llm",
+  "name": "Qwen3 8B (Q4_K_M)",
+  "description": "Larger model for PCs with an 8 GB+ GPU (RTX 3070).",
+  "ram_mb": 6000,
+  "files": [
+   {
+    "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/a6adef130ffb23ddaf1a62fec9dced968c9bc482/Qwen3-8B-Q4_K_M.gguf",
+    "name": "model.gguf",
+    "size": 5027784512,
+    "sha256": "120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4"
+   },
+   {
+    "url": "https://huggingface.co/Qwen/Qwen3-8B/resolve/b968826d9c46dd6066d109eabc6255188de91218/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 11422654,
+    "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+   }
+  ]
+ },
+ {
+  "id": "qwen3-14b",
+  "kind": "llm",
+  "name": "Qwen3 14B (Q4_K_M)",
+  "description": "Largest option for 24 GB GPUs (RTX 3090).",
+  "ram_mb": 10000,
+  "files": [
+   {
+    "url": "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/a04a82c4739b3ef5fa6da7d10261db2c67dd1985/Qwen3-14B-Q4_K_M.gguf",
+    "name": "model.gguf",
+    "size": 9001753984,
+    "sha256": "5eaa0870bd81ed3b58a630a271234cfa604e43ffb3a19cd68e54a80dd9d52a66"
+   },
+   {
+    "url": "https://huggingface.co/Qwen/Qwen3-14B/resolve/40c069824f4251a91eefaf281ebe4c544efd3e18/tokenizer.json",
+    "name": "tokenizer.json",
+    "size": 11422654,
+    "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+   }
+  ]
+ }
+]

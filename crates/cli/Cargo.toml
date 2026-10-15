@@ -14,5 +14,8 @@ openflow-core.workspace = true
 openflow-engines.workspace = true
 openflow-platform.workspace = true
 anyhow.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
+clap = { version = "4", features = ["derive"] }
+env_logger = "0.11"

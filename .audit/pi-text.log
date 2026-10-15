@@ -1,0 +1,21 @@
+Done. All five rule modules implemented + tested.
+
+**changed:** `crates/core/src/text/{tidy,fillers,corrections,spoken,lists}.rs` (only my files; `mod.rs` untouched)
+
+**Design (short):**
+- `tidy` — space collapse, line trim, space-before-punct, redundant-comma collapse, sentence capitalization, lone `i`→`I`; never adds final period. Shared normalizer the other four rules end with (so no double spaces / leading commas can survive, and `tidy` is already the last pipeline stage → idempotent no-op).
+- `fillers` — word-scan; filler removed only when bounded by punctuation/text edges, with an adjacent comma (or sentence period) folded in; ranges merged then deleted; stutter collapse loops over the 13-word list (`that that`/`had had` kept).
+- `corrections` — sentence-tagged word scan; marker → R (rest of sentence); cut from R[0]'s backward occurrence else drop last `len(R)` words; `scratch/delete/never mind that` retract the preceding sentence, or the clause before the marker's last delimiter. `marker` with no preceding word in the sentence is ignored (covers `No wait is too long.` / `I mean it when I say…`). Marker list uses `make that` (not `actually make that`) — that is what makes `Buy milk, actually make that oat milk.` → `Buy oat milk.`
+- `spoken` — phrase + glued spaces/comma-period replaced by `\n`/`\n\n`; a comma *before* the phrase is kept (`Hi team,\n\n…`).
+- `lists` — ordinals + `number one…ten`; run must start at 1 and count up, extending markers need a comma/`and` before them (kills `a second opinion`); intro → `:` line, items cleaned/capitalized via tidy's `N. ` prefix, later sentence kept as `\n\n` paragraph.
+
+**check:**
+- `. /workspace/openflow/scripts/dev-env.sh && CARGO_BUILD_JOBS=3 cargo test -p openflow-core`
+  ```
+  test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+  test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+  ```
+- `cargo clippy -p openflow-core --all-targets`: 0 warnings in `text/`; 3 remaining are pre-existing (`desktop.rs:70`, `hotkey.rs:214/229`). rustc warnings: 0.
+
+**next:** none — uncommitted by design (5 modified files).
+EXIT 0

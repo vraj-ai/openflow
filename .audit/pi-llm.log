@@ -1,0 +1,42 @@
+Done.
+
+## Summary
+
+**Files changed**
+- `crates/engines/src/llm.rs` (new) — `Family`, `LocalLlm`, `TextGenerator` impl
+- `crates/engines/tests/llm.rs` (new) — 2 ignored real-model tests covering (a)–(d)
+- `crates/engines/src/lib.rs` — one line added: `pub mod llm;`
+- `Cargo.toml` — **unchanged**; every dep needed (candle-core/nn/transformers, tokenizers) was already declared. No new deps.
+
+**Design notes**
+- Weights enum over `quantized_{qwen3,gemma3,llama}::ModelWeights`; `from_gguf(ct, &mut file, &device)`.
+- Cache reset per call: `clear_kv_cache()` for Qwen3 and Llama (both exist at qwen3:584, llama:562). Gemma3's `ModelWeights` exposes **no** `clear_kv_cache` and its KV cache is private per-layer, so it is reset by rebuilding the weights from the GGUF (marked with a comment).
+- **Prefix cache skipped**: candle's quantized models expose `clear_kv_cache` but no KV **truncation** API, so a shared-prefix cache cannot be trimmed to the common prefix. Implementing it would require truncation the source does not provide.
+- Greedy = `Sampling::ArgMax` when `temperature == 0`, else `Sampling::All{temp}`, seed 42; repeat penalty 1.1 over last 64 tokens; stops from `token_to_id` (missing skipped); `log::debug!` tok/s.
+- Device: Metal (feature+available) → CUDA (feature+available) → CPU.
+
+**Tests** (`#[ignore = "needs models"]`, skip when `$OPENFLOW_MODELS/qwen3-1.7b` absent), collapsed to 2 functions so the 1.1 GB GGUF loads twice, not four times.
+
+```
+echo output: "The quick brown fox."
+cleanup output: "so i think we should meet on tuesday"
+```
+
+- `. scripts/dev-env.sh && cargo test -p openflow-engines --test llm -- --include-ignored --nocapture` →
+  ```
+  test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.30s
+  ```
+- `cargo test --workspace` (non-ignored) → `test result: ok. 18 passed; 0 failed` (core) + all others ok; llm target `2 ignored`. Zero warnings from my crate.
+
+**macOS metal compile gate — could NOT be verified on this box (pre-existing env blocker, not my code)**
+- `cargo check -p openflow-engines --features metal --target aarch64-apple-darwin` fails in `onig_sys v69.9.3` (tokenizers' C regex backend):
+  ```
+  cargo:warning=cc: error: unrecognized command-line option '-arch'
+  cargo:warning=cc: error: unrecognized command-line option '-mmacosx-version-min=11.0'
+  error: failed to run custom build command for `onig_sys v69.9.3`
+  ```
+  The dev box has no macOS C cross-compiler, and the failure occurs before `openflow-engines` is compiled. Proven independent of my change: `cargo check -p tokenizers@0.23.2 --target aarch64-apple-darwin` fails identically. Not hacked around.
+- Metal branch API verified against candle-core 0.11.0 source instead: `utils::metal_is_available` (utils.rs:406) and `Device::new_metal(0)` (device.rs:258) exist; same for cuda (:402, :234).
+
+**Next:** metal/CUDA runtime path needs a real macOS host to compile-gate; on the dev box it is blocked by the `onig_sys` cross-compile gap.
+EXIT 0

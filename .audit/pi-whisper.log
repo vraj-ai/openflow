@@ -1,0 +1,36 @@
+Done. All required tests pass.
+
+## Summary
+
+**Files changed**
+- `crates/engines/src/whisper.rs` (new) — candle Whisper STT: `Whisper::load`, `detect_language`, `SpeechToText::transcribe`; greedy decode over 30 s windows, hotword initial-prompt, no-speech gate, dedup + suppress handling; local Slaney mel filterbank (`mel_filterbank`, public for the unit test).
+- `crates/engines/tests/whisper.rs` (new) — real-model tests: English WER vs reference, language detection, silence.
+- `crates/engines/src/lib.rs` — one line added: `pub mod whisper;`.
+- `crates/engines/Cargo.toml` — unchanged (hound/tokenizers/candle already deps; greedy needs no `rand`).
+
+**Commands + results**
+```
+cargo test -p openflow-engines --lib whisper
+  running 2 tests
+  test whisper::tests::mel_filterbank_shape_and_structure ... ok
+  test whisper::tests::mel_filterbank_known_values ... ok
+  test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+cargo test -p openflow-engines --test whisper -- --include-ignored --nocapture
+  running 3 tests
+  detected language: "en" in 3.306628612s
+  test detect_language_english ... ok
+  silence transcript: "you" in 3.601559389s
+  test transcribe_silence ... ok
+  english transcript: "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel."
+  english wer: 0.000 in 7.767840033s
+  test transcribe_english ... ok
+  test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.43s
+```
+
+`rustfmt --check` clean on both new files. Mel filterbank values match the librosa-Slaney reference (f64→f32) to <1e-7.
+
+- `changed:` crates/engines/src/whisper.rs, crates/engines/tests/whisper.rs, crates/engines/src/lib.rs
+- `check:` above two `cargo test` commands — pass
+- `next:` none
+EXIT 0
