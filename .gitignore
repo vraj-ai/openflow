@@ -9,3 +9,4 @@ run-claude.sh
 /eval/audio/*.wav
 node_modules
 todo.md
+/.worktrees
