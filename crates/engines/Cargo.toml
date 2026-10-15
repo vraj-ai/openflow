@@ -1,0 +1,25 @@
+[package]
+name = "openflow-engines"
+description = "Local inference: audio decoding, Silero VAD, Parakeet and Whisper speech-to-text, llama-family LLMs, model downloads."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+cuda = ["candle-core/cuda", "candle-transformers/cuda", "candle-nn/cuda", "ort/cuda"]
+metal = ["candle-core/metal", "candle-transformers/metal", "candle-nn/metal"]
+coreml = ["ort/coreml"]
+
+[dependencies]
+openflow-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+ort = { version = "=2.0.0-rc.14", default-features = false, features = ["load-dynamic", "ndarray", "std"] }
+ndarray = "0.17"
+hound = "3.5"
+candle-core = "0.11"
+candle-nn = "0.11"
+candle-transformers = "0.11"
+tokenizers = { version = "0.23", default-features = false, features = ["onig"] }

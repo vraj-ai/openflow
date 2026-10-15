@@ -1,0 +1,12 @@
+[package]
+name = "openflow-core"
+description = "Pure dictation logic: hotkey state machine, text cleanup rules, dictionary, snippets, styles, prompts, controller."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true

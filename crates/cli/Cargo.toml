@@ -1,0 +1,18 @@
+[package]
+name = "openflow-cli"
+description = "Headless OpenFlow: transcribe, clean, dictate from WAV, eval, model downloads, hotkey daemon."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "openflow"
+path = "src/main.rs"
+
+[dependencies]
+openflow-core.workspace = true
+openflow-engines.workspace = true
+openflow-platform.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+log.workspace = true

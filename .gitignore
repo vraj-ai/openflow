@@ -1,2 +1,11 @@
 claude.log
 run-claude.sh
+/target
+/.cargo-home
+/vendor
+/models
+/.scratch
+/.venv
+/eval/audio/*.wav
+node_modules
+todo.md
