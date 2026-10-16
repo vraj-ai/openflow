@@ -31,8 +31,8 @@ Qwen3-1.7B Q4_K_M (the documented "fast" option) and multilingual STT is exercis
 | M1 | Core dictation loop | **Done** (verified headlessly; macOS/Windows runtime untested) |
 | M2 | Cleanup pipeline + eval set | **Done** |
 | M3 | Personalisation (dictionary, snippets, styles, model manager, settings) | **Done** (CLI settings surface; no GUI) |
-| M4 | Command Mode, hands-free, Esc cancel | Not started as a milestone (code exists, unverified) |
-| M5 | Windows/Linux + CUDA | Not started |
+| M4 | Command Mode, hands-free, Esc cancel | **Done** (verified headlessly) |
+| M5 | Windows/Linux + CUDA | **Partly done** — compile-gated; CUDA needs the GPU boxes |
 | M6 | Polish and release (auto-learn, Whisper fallback, CI, docs) | Not started |
 
 ---
@@ -155,7 +155,73 @@ OPENFLOW_HOME=.scratch/home openflow history
   2025-10-15 17:20:00 command   com.tinyspeck.slackmacgap Shorter.  [llm rejected]
 ```
 
+Tone evidence: the deterministic half of a style is observable end-to-end — the same utterance
+through `openflow clean --app com.apple.mail` (formal) keeps/closes the final period while
+`--app com.tinyspeck.slackmacgap` (casual) drops it. The *wording* did not change between the two
+tones with Qwen3-1.7B, so per-app register currently rests on the prompt, which a 1.7B model
+largely ignores; re-measure with the 4B default on a Metal/CUDA box.
+
 Not verified: the plan's "settings UI" as a GUI — the Tauri shell does not exist here; the CLI
 commands above are the settings surface, and the same `Settings`/`Dictionary`/`Snippets` types are
-what a UI would bind to. Per-app tone differences are unit-tested (`style_follows_frontmost_app`)
-and prompt-tested; see the tone note in M2 about the 1.7B model.
+what a UI would bind to.
+
+## M4 — Command Mode, hands-free, Esc cancel
+
+Implemented in the tree and verified this session (the code came with the merged `wip/*`
+branches; nothing needed fixing):
+
+- Second hotkey (`Fn+Ctrl` / `Ctrl+Win`) selects Command Mode; `Controller::command` reads the
+  selection through the AX API and falls back to a sentinel-copy trick that restores the previous
+  clipboard, then replaces the selection with the LLM's rewrite. With no selection it uses the
+  focused field as context and inserts; with no text field at all it puts the answer on the
+  clipboard and raises a notification. `prompt::command_prompt` has the three shapes.
+- Hands-free: a double tap or the `Fn+Space` chord starts recording that ends on the next press.
+- Escape cancels while recording and is swallowed so it does not reach the app underneath.
+
+Evidence:
+
+```
+# selection replaced through the real LLM and paste path
+openflow --settings .scratch/m3-settings.json dictate crates/engines/tests/fixtures/speech_en.wav \
+    --mode command --selection "the quarterly migration plan needs a shorter summary ..."
+  -> outcome Replaced("the quarterly migration plan needs a shorter summary ..."), keys [Paste]
+
+# no text field anywhere -> notification + clipboard, nothing pasted
+openflow --settings .scratch/m3-settings.json dictate crates/engines/tests/fixtures/speech_en.wav --mode command
+  -> outcome Notified(...), keys [Copy], notifications [["OpenFlow", ...]], pasted []
+
+cargo test -p openflow-core hotkey::   # double_tap_enters_hands_free_and_next_press_finishes,
+                                       # hands_free_chord_starts_hands_free, escape_cancels_and_swallows_release,
+                                       # escape_cancels_hands_free, escape_when_idle_does_nothing
+cargo test -p openflow-core desktop::  # selection_falls_back_to_copy_and_restores_clipboard
+```
+
+The two CLI runs used the LibriSpeech fixture as the spoken instruction, so they prove the plumbing
+(transcript -> selection read -> LLM -> replace/notify), not instruction following; instruction
+quality is covered by the command-prompt unit tests and the M2 note about model size. The macOS AX
+read itself cannot be exercised here.
+
+## M5 — Windows, Linux, CUDA
+
+What the tree already has (verified by compile-gating; there is no Windows or GPU machine here):
+
+- `crates/platform/src/windows.rs`: `WH_KEYBOARD_LL` hook, `SendInput` paste/Enter, foreground
+  executable name as the app id, clipboard through `arboard`; selection uses the copy fallback (no
+  UI Automation reader yet). Linux X11 hotkey listener and paste live in `linux.rs`; macOS
+  compile-gates as CGEventTap + AX.
+- `crates/engines` features `cuda`, `metal`, `coreml`; CUDA selects `Device::new_cuda(0)`, Metal
+  selects `Device::new_metal(0)`.
+- The catalog carries the bigger PC-side models (`qwen3-8b`, `qwen3-14b`) next to the Mac default
+  (`qwen3-4b-instruct-2507`), and `openflow set cleanup.llm_model qwen3-8b` switches to one.
+
+Evidence:
+
+```
+cargo check -p openflow-platform --target x86_64-pc-windows-gnu   # ok
+cargo check -p openflow-platform --target aarch64-apple-darwin    # ok
+cargo check -p openflow-engines --features cuda                   # FAILS here: the cudarc build
+  # script runs `nvcc --version` and this box has no CUDA toolkit. Needs a 3070/3090 machine.
+```
+
+Not verified: any runtime behaviour on Windows/Linux desktops, Wayland (X11 only), and CUDA/Metal
+inference and their speedups. This is the milestone where this box cannot produce evidence.
