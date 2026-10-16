@@ -74,7 +74,8 @@ pub fn clean(raw: &str, settings: &Settings, style: &Style, llm: Option<&mut dyn
         match llm.generate(&prompt, &opts) {
             Ok(out) => match guard::check(&base, &out, &settings.cleanup.guard) {
                 Ok(accepted) if snippet_cues_survive(settings, &base, &accepted) => {
-                    text = dict.apply(&accepted);
+                    // Models add trailing spaces and odd spacing; normalise it.
+                    text = dict.apply(&crate::text::tidy::tidy(&accepted));
                     used_llm = true;
                 }
                 Ok(_) => rejected = Some(Rejection::TooDifferent { edit_ratio: 1.0 }),

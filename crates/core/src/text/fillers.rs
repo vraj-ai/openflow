@@ -6,6 +6,9 @@
 use super::tidy;
 
 const FILLERS: [&str; 9] = ["um", "umm", "uh", "uhh", "er", "erm", "ah", "hmm", "mm"];
+/// Fillers that are hesitations wherever they appear, including between two
+/// words ("we should uh ship it"). The rest need a punctuation boundary.
+const ALWAYS_FILLERS: [&str; 8] = ["um", "umm", "uh", "uhh", "er", "erm", "ah", "hmm"];
 /// Short function words where a repeated pair collapses to one ("the the").
 /// "that that" and "had had" are deliberately absent.
 const STUTTERS: [&str; 13] =
@@ -28,9 +31,9 @@ fn remove_filler_words(s: &str) -> String {
         if !FILLERS.contains(&w.as_str()) {
             continue;
         }
-        if !is_boundary(s[..start].trim_end().chars().next_back())
-            || !is_boundary(s[end..].trim_start().chars().next())
-        {
+        let bounded = is_boundary(s[..start].trim_end().chars().next_back())
+            && is_boundary(s[end..].trim_start().chars().next());
+        if !bounded && !ALWAYS_FILLERS.contains(&w.as_str()) {
             continue;
         }
         let mut a = start;
@@ -159,6 +162,14 @@ mod tests {
     fn keeps_unlisted_repeats() {
         assert_eq!(remove_fillers("That that is what I said."), "That that is what I said.");
         assert_eq!(remove_fillers("We had had lunch."), "We had had lunch.");
+    }
+
+    #[test]
+    fn removes_fillers_between_two_words() {
+        assert_eq!(
+            remove_fillers("I think we should uh ship it, um, today."),
+            "I think we should ship it today."
+        );
     }
 
     #[test]

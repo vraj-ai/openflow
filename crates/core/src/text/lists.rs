@@ -70,16 +70,28 @@ fn best_run(text: &str, ws: &[(usize, usize)], cands: &[Cand]) -> Option<Vec<Can
     best
 }
 
-/// A marker inside a sentence only counts when a comma or "and" precedes it,
-/// so "a second opinion" stays prose.
+/// A marker inside a sentence only counts when it does not follow a determiner,
+/// so "a second opinion" and "the second half" stay prose while an unpunctated
+/// spoken run ("first the report second the slides") still becomes a list.
 fn boundary_before(text: &str, ws: &[(usize, usize)], c: &Cand) -> bool {
-    let head = text[..ws[c.word].0].trim_end();
+    const DETERMINERS: [&str; 18] = [
+        "a", "an", "the", "my", "your", "his", "her", "its", "our", "their", "this", "that", "these", "those",
+        "any", "another", "each", "every",
+    ];
+    let raw_head = &text[..ws[c.word].0];
+    if raw_head.trim_end_matches([' ', '\t']).ends_with('\n') {
+        // A spoken "new line" already set the layout; do not turn it into a list.
+        return false;
+    }
+    let head = raw_head.trim_end();
     match head.chars().next_back() {
         None => true,
         Some(',' | '.' | ';' | ':') => true,
         Some(_) => {
             let inner = words(head);
-            inner.last().is_some_and(|&(a, b)| head[a..b].eq_ignore_ascii_case("and"))
+            inner
+                .last()
+                .is_some_and(|&(a, b)| !DETERMINERS.contains(&head[a..b].to_lowercase().as_str()))
         }
     }
 }
@@ -205,6 +217,15 @@ mod tests {
         assert_eq!(
             format_lists("First I want a second opinion, then a third."),
             "First I want a second opinion, then a third."
+        );
+        assert_eq!(format_lists("Check the second half and the third quarter."), "Check the second half and the third quarter.");
+    }
+
+    #[test]
+    fn spoken_run_without_punctuation_becomes_a_list() {
+        assert_eq!(
+            format_lists("I need three things first the report second the slides and third the demo"),
+            "I need three things:\n1. The report\n2. The slides\n3. The demo"
         );
     }
 

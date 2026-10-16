@@ -61,16 +61,72 @@ fn apply_once(s: &str) -> Option<String> {
                 continue;
             }
             let first = ws[j].lower.clone();
-            let cut = before
+            let tail = r_end - j;
+            let anchor = before
                 .iter()
                 .rev()
                 .find(|&&k| ws[k].lower == first)
                 .copied()
-                .unwrap_or(before[before.len() - (r_end - j).min(before.len())]);
+                .or_else(|| {
+                    let class = word_class(&first)?;
+                    let k = before.iter().rev().find(|&&k| word_class(&ws[k].lower) == Some(class)).copied()?;
+                    // A value can be several tokens ("5 million"): take the start of the run.
+                    let mut k = k;
+                    while k > 0
+                        && ws[k - 1].sentence == ws[k].sentence
+                        && word_class(&ws[k - 1].lower) == Some(class)
+                        && s[ws[k - 1].end..ws[k].start].trim().is_empty()
+                    {
+                        k -= 1;
+                    }
+                    Some(k)
+                });
+            // A long restart ("... last night no wait this morning and the dashboards ...")
+            // has no safe cut point, so leave it for the LLM instead of guessing.
+            let Some(cut) = anchor.or((tail <= 3).then(|| before[before.len() - tail.min(before.len())])) else {
+                continue;
+            };
             return Some(join(&s[..ws[cut].start], &s[ws[j].start..]));
         }
     }
     None
+}
+
+/// The same kind of value on both sides of the marker ("three" -> "four pm",
+/// "Monday" -> "Tuesday"). Cutting at the previous word of that class keeps
+/// the head of the sentence, which the repeated-word and length fallbacks lose.
+#[derive(PartialEq, Clone, Copy)]
+enum Class {
+    Number,
+    Time,
+    Weekday,
+    Month,
+}
+
+fn word_class(w: &str) -> Option<Class> {
+    const NUMBERS: [&str; 32] = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+        "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty",
+        "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred", "thousand", "million",
+        "first",
+    ];
+    const WEEKDAYS: [&str; 7] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+    const MONTHS: [&str; 12] = [
+        "january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+        "november", "december",
+    ];
+    let w = w.trim_end_matches('.');
+    if NUMBERS.contains(&w) || (!w.is_empty() && w.chars().all(|c| c.is_ascii_digit())) {
+        Some(Class::Number)
+    } else if WEEKDAYS.contains(&w) {
+        Some(Class::Weekday)
+    } else if MONTHS.contains(&w) {
+        Some(Class::Month)
+    } else if matches!(w, "am" | "pm" | "am." | "pm.") {
+        Some(Class::Time)
+    } else {
+        None
+    }
 }
 
 /// "scratch that" retracts the sentence it sits in, or the sentence before it
@@ -168,6 +224,18 @@ mod tests {
         assert_eq!(
             apply_self_corrections("Let's meet at 3 pm no wait at 4 pm."),
             "Let's meet at 4 pm."
+        );
+    }
+
+    #[test]
+    fn no_wait_keeps_the_head_when_only_the_value_changes() {
+        assert_eq!(
+            apply_self_corrections("lets meet at three no wait four pm on tuesday"),
+            "Let's meet at four pm on tuesday"
+        );
+        assert_eq!(
+            apply_self_corrections("we meet monday no wait tuesday at noon"),
+            "We meet tuesday at noon"
         );
     }
 

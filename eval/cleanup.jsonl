@@ -1,0 +1,45 @@
+{"raw": "Um, so I think we should uh ship the new build on friday morning", "expected": "So I think we should ship the new build on Friday morning.", "tags": ["filler"]}
+{"raw": "uh hi everyone thanks for joining the call", "expected": "Hi everyone, thanks for joining the call.", "tags": ["filler"]}
+{"raw": "yeah so um the the thing is we need more time", "expected": "Yeah so the thing is we need more time.", "tags": ["filler"]}
+{"raw": "I I think the the plan is fine", "expected": "I think the plan is fine.", "tags": ["filler"]}
+{"raw": "Hmm, that is a good question.", "expected": "That is a good question.", "tags": ["filler"]}
+{"raw": "So, uh, we can, um, meet tomorrow.", "expected": "So we can meet tomorrow.", "tags": ["filler"]}
+{"raw": "um okay so here is the plan we ship the feature on monday and then we uh monitor the error rate for a week", "expected": "Okay so here is the plan, we ship the feature on Monday and then we monitor the error rate for a week.", "tags": ["filler", "long"]}
+{"raw": "Lets meet at three no wait four pm on tuesday", "expected": "Let's meet at four pm on Tuesday.", "tags": ["correction"]}
+{"raw": "Send it to John, sorry, Jane.", "expected": "Send it to Jane.", "tags": ["correction"]}
+{"raw": "The budget is 5 million, I mean 6 million.", "expected": "The budget is 6 million.", "tags": ["correction"]}
+{"raw": "I'll bring the cake. Scratch that. I'll bring cookies.", "expected": "I'll bring cookies.", "tags": ["correction"]}
+{"raw": "Buy milk, actually make that oat milk.", "expected": "Buy oat milk.", "tags": ["correction"]}
+{"raw": "we meet monday no wait tuesday at noon", "expected": "We meet Tuesday at noon.", "tags": ["correction"]}
+{"raw": "the deadline is the tenth no wait the twelfth of december", "expected": "The deadline is the twelfth of December.", "tags": ["correction"]}
+{"raw": "turn the volume up no wait down a bit", "expected": "Turn the volume down a bit.", "tags": ["correction", "hard"]}
+{"raw": "I need three things first the report second the slides and third the demo", "expected": "I need three things:\n1. The report\n2. The slides\n3. The demo", "tags": ["list"]}
+{"raw": "My goals are first ship the app, second write the docs, and third rest.", "expected": "My goals are:\n1. Ship the app\n2. Write the docs\n3. Rest", "tags": ["list"]}
+{"raw": "Number one, eggs. Number two, milk.", "expected": "1. Eggs\n2. Milk", "tags": ["list"]}
+{"raw": "First, wash the car. Second, dry it.", "expected": "1. Wash the car\n2. Dry it", "tags": ["list"]}
+{"raw": "Shopping list, first milk, second eggs.", "expected": "Shopping list:\n1. Milk\n2. Eggs", "tags": ["list"]}
+{"raw": "the steps are first install the cli second run the setup script and third download the model", "expected": "The steps are:\n1. Install the CLI\n2. Run the setup script\n3. Download the model", "tags": ["list", "long"]}
+{"raw": "First of all, thanks.", "expected": "First of all, thanks.", "tags": ["list", "no_change"]}
+{"raw": "First I want a second opinion, then a third.", "expected": "First I want a second opinion, then a third.", "tags": ["list", "no_change"]}
+{"raw": "Hi team, new paragraph, the launch is friday.", "expected": "Hi team,\n\nThe launch is Friday.", "tags": ["spoken"]}
+{"raw": "first item, new line, second item.", "expected": "First item,\nSecond item.", "tags": ["spoken"]}
+{"raw": "the action items are new line one review the pull request new line two update the docs", "expected": "The action items are\nOne review the pull request\nTwo update the docs", "tags": ["spoken", "list"]}
+{"raw": "i think i can do it", "expected": "I think I can do it.", "tags": ["tidy"]}
+{"raw": "the meeting is at 3.5 pm, , okay", "expected": "The meeting is at 3.5 pm, okay.", "tags": ["tidy"]}
+{"raw": "hello world .", "expected": "Hello world.", "tags": ["tidy"]}
+{"raw": "what time is the meeting tomorrow", "expected": "What time is the meeting tomorrow?", "tags": ["question"]}
+{"raw": "can you send me the report by friday", "expected": "Can you send me the report by Friday?", "tags": ["question"]}
+{"raw": "how do i reset my password in the admin panel", "expected": "How do I reset my password in the admin panel?", "tags": ["question"]}
+{"raw": "remind me to call the dentist tomorrow morning", "expected": "Remind me to call the dentist tomorrow morning.", "tags": ["question"]}
+{"raw": "what is the best way to cook rice on a stove", "expected": "What is the best way to cook rice on a stove?", "tags": ["question"]}
+{"raw": "hey team quick update the migration finished last night no wait this morning and the dashboards look fine", "expected": "Hey team, quick update: the migration finished this morning and the dashboards look fine.", "tags": ["long", "correction"]}
+{"raw": "i pushed a fix to the main branch and opened a pull request", "expected": "I pushed a fix to the main branch and opened a pull request.", "tags": ["dev"]}
+{"raw": "the parakeet model handles english and the whisper model handles the rest", "expected": "The Parakeet model handles English and the Whisper model handles the rest.", "tags": ["dev"]}
+{"raw": "add a retry with exponential backoff to the http client", "expected": "Add a retry with exponential backoff to the HTTP client.", "tags": ["dev"]}
+{"raw": "hey can you send the deck before the review", "expected": "Could you send the deck before the review?", "tags": ["style"], "app": "com.apple.mail"}
+{"raw": "thanks for jumping on this so quickly", "expected": "Thanks for jumping on this so quickly!", "tags": ["style"], "app": "com.tinyspeck.slackmacgap"}
+{"raw": "lets grab coffee tomorrow morning", "expected": "Let's grab coffee tomorrow morning.", "tags": ["style"], "app": "com.apple.MobileSMS"}
+{"raw": "so the migration is going to take about twenty minutes and then we can deploy", "expected": "So the migration is going to take about twenty minutes and then we can deploy.", "tags": ["long"]}
+{"raw": "the report says revenue grew by twelve percent last quarter", "expected": "The report says revenue grew by twelve percent last quarter.", "tags": ["plain"]}
+{"raw": "we should double check the numbers before we share them", "expected": "We should double check the numbers before we share them.", "tags": ["plain"]}
+{"raw": "note that the cache is keyed by the request path", "expected": "Note that the cache is keyed by the request path.", "tags": ["plain"]}

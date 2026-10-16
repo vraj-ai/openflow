@@ -4,11 +4,68 @@
 /// starts and turns a bare "i" into "I". Never adds a final period. Idempotent.
 pub fn tidy(text: &str) -> String {
     let s = collapse_spaces(text);
+    let s = restore_contractions(&s);
     let s = drop_redundant_commas(&s);
     let s = space_before_punct(&s);
     let s = trim_lines(&s);
     let s = uppercase_sentences(&s);
     lone_i(&s)
+}
+
+/// Words the speech model writes without the apostrophe. Pairs where the plain
+/// word is also common English ("its", "were", "well", "ill", "id") are absent.
+const CONTRACTIONS: [(&str, &str); 26] = [
+    ("dont", "don't"),
+    ("doesnt", "doesn't"),
+    ("didnt", "didn't"),
+    ("cant", "can't"),
+    ("wont", "won't"),
+    ("isnt", "isn't"),
+    ("arent", "aren't"),
+    ("wasnt", "wasn't"),
+    ("werent", "weren't"),
+    ("havent", "haven't"),
+    ("hasnt", "hasn't"),
+    ("hadnt", "hadn't"),
+    ("couldnt", "couldn't"),
+    ("wouldnt", "wouldn't"),
+    ("shouldnt", "shouldn't"),
+    ("mustnt", "mustn't"),
+    ("ive", "I've"),
+    ("im", "I'm"),
+    ("youre", "you're"),
+    ("youve", "you've"),
+    ("youll", "you'll"),
+    ("theyre", "they're"),
+    ("theyve", "they've"),
+    ("theyll", "they'll"),
+    ("weve", "we've"),
+    ("lets", "let's"),
+];
+
+fn restore_contractions(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some((at, _)) = rest.char_indices().find(|(_, c)| c.is_alphanumeric()) {
+        out.push_str(&rest[..at]);
+        let end = rest[at..].find(|c: char| !c.is_alphanumeric()).map_or(rest.len(), |i| at + i);
+        let word = &rest[at..end];
+        match CONTRACTIONS.iter().find(|(w, _)| *w == word.to_lowercase()) {
+            Some((_, fixed)) => {
+                if word.chars().next().is_some_and(char::is_uppercase) {
+                    let mut c = fixed.chars();
+                    out.extend(c.next().unwrap().to_uppercase());
+                    out.extend(c);
+                } else {
+                    out.push_str(fixed);
+                }
+            }
+            None => out.push_str(word),
+        }
+        rest = &rest[end..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Space/tab runs become one space; newlines are left alone.
@@ -136,6 +193,16 @@ mod tests {
     #[test]
     fn capitalizes_after_newline() {
         assert_eq!(tidy("first line  \nsecond line "), "First line\nSecond line");
+    }
+
+    #[test]
+    fn restores_missing_apostrophes() {
+        assert_eq!(tidy("i dont think its broken"), "I don't think its broken");
+        assert_eq!(tidy("Dont worry, were fine"), "Don't worry, were fine");
+        assert_eq!(tidy("ive got it"), "I've got it");
+        assert_eq!(tidy("lets meet"), "Let's meet");
+        assert_eq!(tidy("the user id column"), "The user id column");
+        assert_eq!(tidy("im not sure youll like theyre plan"), "I'm not sure you'll like they're plan");
     }
 
     #[test]

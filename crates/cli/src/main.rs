@@ -82,6 +82,18 @@ enum Cmd {
     Daemon,
     /// Print the settings file path and contents.
     Settings,
+    /// Show, clear or export the dictation history.
+    History {
+        /// Show only the newest N entries.
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Empty the history file.
+        #[arg(long)]
+        clear: bool,
+        /// Print the stored JSONL instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -186,6 +198,32 @@ fn main() -> anyhow::Result<()> {
         }
         Cmd::Eval(args) => eval::run(args, &settings, &root)?,
         Cmd::Daemon => daemon(settings, &root)?,
+        Cmd::History { limit, clear, json } => {
+            let history = History::new(paths::history_file(), settings.history.max_entries);
+            if clear {
+                history.clear()?;
+                println!("history cleared");
+            }
+            let entries = history.load()?;
+            let skip = entries.len().saturating_sub(limit.unwrap_or(usize::MAX));
+            for e in &entries[skip..] {
+                if json {
+                    println!("{}", serde_json::to_string(e)?);
+                } else {
+                    println!(
+                        "{} {:<9} {:<24} {}{}",
+                        openflow_core::history::format_time(e.at_ms),
+                        format!("{:?}", e.mode).to_lowercase(),
+                        e.app.id.as_deref().unwrap_or("-"),
+                        e.text.replace('\n', " / "),
+                        if e.rejected.is_some() { "  [llm rejected]" } else { "" }
+                    );
+                }
+            }
+            if !json {
+                println!("{} entries ({})", entries.len(), paths::history_file().display());
+            }
+        }
         Cmd::Settings => {
             println!("{}", settings_path.display());
             println!("{}", serde_json::to_string_pretty(&settings)?);
