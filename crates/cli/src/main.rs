@@ -13,11 +13,13 @@ use clap::{Parser, Subcommand, ValueEnum};
 use openflow_core::catalog;
 use openflow_core::controller::{Controller, clean};
 use openflow_core::desktop::{AppInfo, FieldSnapshot};
+use openflow_core::dictionary::{DictEntry, EntrySource};
 use openflow_core::history::History;
 use openflow_core::hotkey::{Machine, Mode};
 use openflow_core::mock::MockDesktop;
 use openflow_core::runtime::{self, AudioSource, Status};
 use openflow_core::settings::Settings;
+use openflow_core::snippets::Snippet;
 use openflow_engines::{audio, download, stack};
 use openflow_platform::paths;
 
@@ -76,6 +78,18 @@ enum Cmd {
         #[arg(long)]
         no_llm: bool,
     },
+    /// List, add or remove personal dictionary terms.
+    Dict {
+        #[command(subcommand)]
+        action: DictCmd,
+    },
+    /// List, add or remove snippets.
+    Snippet {
+        #[command(subcommand)]
+        action: SnippetCmd,
+    },
+    /// Read or write one setting with a dotted key (see `openflow settings`).
+    Set { key: String, value: String },
     /// Measure ASR WER and cleanup quality on the eval sets.
     Eval(eval::EvalArgs),
     /// Listen for the global hotkey, record the microphone, paste into the focused app.
@@ -100,6 +114,31 @@ enum Cmd {
 enum ModelsCmd {
     List,
     Download { ids: Vec<String> },
+    /// Delete a downloaded model. Prints what would go unless --yes is given.
+    Remove {
+        ids: Vec<String>,
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum DictCmd {
+    List,
+    Add {
+        term: String,
+        /// A phrase the speech model writes instead of the term (repeatable).
+        #[arg(long = "sounds-like")]
+        sounds_like: Vec<String>,
+    },
+    Remove { term: String },
+}
+
+#[derive(Subcommand)]
+enum SnippetCmd {
+    List,
+    Add { cue: String, text: String },
+    Remove { cue: String },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -133,6 +172,22 @@ fn main() -> anyhow::Result<()> {
                     &|| false,
                 )?;
                 eprintln!("\r{id}: installed in {}", spec.dir(&root).display());
+            }
+        }
+        Cmd::Models { action: ModelsCmd::Remove { ids, yes } } => {
+            for id in ids {
+                let spec = catalog::get(&id).with_context(|| format!("unknown model {id}"))?;
+                let dir = spec.dir(&root);
+                if !dir.exists() {
+                    eprintln!("{id}: not downloaded");
+                    continue;
+                }
+                if yes {
+                    std::fs::remove_dir_all(&dir)?;
+                    eprintln!("{id}: deleted {}", dir.display());
+                } else {
+                    eprintln!("{id}: would delete {} ({} MB); pass --yes", dir.display(), spec.download_size() / 1_000_000);
+                }
             }
         }
         Cmd::Transcribe { wav, no_vad } => {
@@ -196,6 +251,66 @@ fn main() -> anyhow::Result<()> {
                 "notifications": desktop.state().notifications,
             }))?);
         }
+        Cmd::Dict { action } => {
+            let mut s = settings.clone();
+            match action {
+                DictCmd::List => {
+                    for e in &s.dictionary.entries {
+                        println!(
+                            "{:<28} {:?} {}",
+                            e.term,
+                            e.source,
+                            e.sounds_like.join(" | ")
+                        );
+                    }
+                    println!("{} terms", s.dictionary.entries.len());
+                }
+                DictCmd::Add { term, sounds_like } => {
+                    s.dictionary.upsert(DictEntry {
+                        term: term.clone(),
+                        sounds_like,
+                        source: EntrySource::Manual,
+                    });
+                    s.save(&settings_path)?;
+                    println!("{term}: saved to {}", settings_path.display());
+                }
+                DictCmd::Remove { term } => {
+                    let before = s.dictionary.entries.len();
+                    s.dictionary.entries.retain(|e| !e.term.eq_ignore_ascii_case(&term));
+                    s.save(&settings_path)?;
+                    println!("{term}: removed {} entry(s)", before - s.dictionary.entries.len());
+                }
+            }
+        }
+        Cmd::Snippet { action } => {
+            let mut s = settings.clone();
+            match action {
+                SnippetCmd::List => {
+                    for x in &s.snippets.items {
+                        println!("{:<28} {}", x.cue, x.text.replace('\n', " \\n "));
+                    }
+                    println!("{} snippets", s.snippets.items.len());
+                }
+                SnippetCmd::Add { cue, text } => {
+                    s.snippets.items.retain(|x| x.cue.to_lowercase() != cue.to_lowercase());
+                    s.snippets.items.push(Snippet { cue: cue.clone(), text });
+                    s.save(&settings_path)?;
+                    println!("{cue}: saved to {}", settings_path.display());
+                }
+                SnippetCmd::Remove { cue } => {
+                    let before = s.snippets.items.len();
+                    s.snippets.items.retain(|x| x.cue.to_lowercase() != cue.to_lowercase());
+                    s.save(&settings_path)?;
+                    println!("{cue}: removed {} snippet(s)", before - s.snippets.items.len());
+                }
+            }
+        }
+        Cmd::Set { key, value } => {
+            let mut s = settings.clone();
+            apply_setting(&mut s, &key, &value)?;
+            s.save(&settings_path)?;
+            println!("{key} = {value}\n{}", settings_path.display());
+        }
         Cmd::Eval(args) => eval::run(args, &settings, &root)?,
         Cmd::Daemon => daemon(settings, &root)?,
         Cmd::History { limit, clear, json } => {
@@ -254,6 +369,75 @@ impl AudioSource for Mic {
         let mono = audio::to_mono(&rec.samples, rec.channels);
         audio::resample(&mono, rec.sample_rate, openflow_core::engine::SAMPLE_RATE)
     }
+}
+
+/// Every key `openflow set` accepts, in one place, so a typo cannot write a
+/// field that nothing reads. Model ids are checked against the catalog.
+const SETTABLE: &[&str] = &[
+    "cleanup.llm_enabled",
+    "cleanup.llm_model",
+    "cleanup.min_words_for_llm",
+    "cleanup.rules.fillers",
+    "cleanup.rules.self_corrections",
+    "cleanup.rules.lists",
+    "cleanup.rules.spoken_commands",
+    "stt.model",
+    "stt.multilingual_model",
+    "stt.language",
+    "stt.vad",
+    "insertion.restore_clipboard",
+    "insertion.restore_delay_ms",
+    "insertion.press_enter_command",
+    "history.enabled",
+    "history.max_entries",
+    "learning.auto_learn",
+    "learning.watch_ms",
+    "styles.default_tone",
+];
+
+fn apply_setting(s: &mut Settings, key: &str, value: &str) -> anyhow::Result<()> {
+    let on = |v: &str| -> anyhow::Result<bool> {
+        match v.to_ascii_lowercase().as_str() {
+            "true" | "yes" | "on" | "1" => Ok(true),
+            "false" | "no" | "off" | "0" => Ok(false),
+            other => anyhow::bail!("expected on/off, got {other:?}"),
+        }
+    };
+    let model = |v: &str, expected: openflow_core::catalog::ModelKind| -> anyhow::Result<String> {
+        let spec = catalog::get(v).with_context(|| format!("unknown model {v}; see `openflow models list`"))?;
+        anyhow::ensure!(spec.kind == expected, "{v} is a {:?} model, not {:?}", spec.kind, expected);
+        Ok(v.to_string())
+    };
+    match key {
+        "cleanup.llm_enabled" => s.cleanup.llm_enabled = on(value)?,
+        "cleanup.llm_model" => s.cleanup.llm_model = model(value, catalog::ModelKind::Llm)?,
+        "cleanup.min_words_for_llm" => s.cleanup.min_words_for_llm = value.parse()?,
+        "cleanup.rules.fillers" => s.cleanup.rules.fillers = on(value)?,
+        "cleanup.rules.self_corrections" => s.cleanup.rules.self_corrections = on(value)?,
+        "cleanup.rules.lists" => s.cleanup.rules.lists = on(value)?,
+        "cleanup.rules.spoken_commands" => s.cleanup.rules.spoken_commands = on(value)?,
+        "stt.model" => s.stt.model = model(value, catalog::ModelKind::Stt)?,
+        "stt.multilingual_model" => {
+            s.stt.multilingual_model = model(value, catalog::ModelKind::Multilingual)?
+        }
+        "stt.language" => {
+            s.stt.language = (!matches!(value, "none" | "auto" | "")).then(|| value.to_string())
+        }
+        "stt.vad" => s.stt.vad = on(value)?,
+        "insertion.restore_clipboard" => s.insertion.restore_clipboard = on(value)?,
+        "insertion.restore_delay_ms" => s.insertion.restore_delay_ms = value.parse()?,
+        "insertion.press_enter_command" => s.insertion.press_enter_command = on(value)?,
+        "history.enabled" => s.history.enabled = on(value)?,
+        "history.max_entries" => s.history.max_entries = value.parse()?,
+        "learning.auto_learn" => s.learning.auto_learn = on(value)?,
+        "learning.watch_ms" => s.learning.watch_ms = value.parse()?,
+        "styles.default_tone" => {
+            s.styles.default_tone = serde_json::from_str(&format!("\"{value}\""))
+                .context("expected formal, casual, very_casual or excited")?
+        }
+        other => anyhow::bail!("unknown key {other}; settable keys: {}", SETTABLE.join(", ")),
+    }
+    Ok(())
 }
 
 fn daemon(settings: Settings, root: &Path) -> anyhow::Result<()> {

@@ -30,7 +30,7 @@ Qwen3-1.7B Q4_K_M (the documented "fast" option) and multilingual STT is exercis
 |---|---|---|
 | M1 | Core dictation loop | **Done** (verified headlessly; macOS/Windows runtime untested) |
 | M2 | Cleanup pipeline + eval set | **Done** |
-| M3 | Personalisation (dictionary, snippets, styles, model manager, settings) | In progress |
+| M3 | Personalisation (dictionary, snippets, styles, model manager, settings) | **Done** (CLI settings surface; no GUI) |
 | M4 | Command Mode, hands-free, Esc cancel | Not started as a milestone (code exists, unverified) |
 | M5 | Windows/Linux + CUDA | Not started |
 | M6 | Polish and release (auto-learn, Whisper fallback, CI, docs) | Not started |
@@ -119,11 +119,43 @@ Known weak cases (kept in the eval set on purpose): "turn the volume up no wait 
 rewriting for the formal mail style — a 1.7B model does not do them; the 4B default is expected to
 do better but is not downloaded here.
 
-## M3 — Personalisation (in progress)
+## M3 — Personalisation
 
-Already in the tree: dictionary (STT hotwords + LLM glossary + post-replace with sounds-like
-phrases), snippets (whole-utterance cue expansion + LLM-survival check), per-app styles by bundle
-id / app name / URL host, catalog + downloader, `models list|download`.
+Implemented and verified this session:
 
-Missing for the milestone: CLI editing of settings/dictionary/snippets (there is no UI to do it),
-`models remove`, and an end-to-end dictionary check through the real STT model.
+- **Settings surface without a UI** (the headless box has no display): `openflow set <key> <value>`
+  with a whitelist of settable keys, `openflow dict list|add|remove [--sounds-like …]`,
+  `openflow snippet list|add|remove`, `openflow models list|download|remove`, and
+  `openflow history [--limit] [--clear] [--json]`. `set` validates model ids against the catalog
+  ("whisper-tiny is a Multilingual model, not Llm") and yells at unknown keys with the key list.
+- **Dictionary** — STT hotwords, LLM glossary and a post-replace pass with sounds-like phrases;
+  **snippets** — whole-utterance cue expansion plus inline cue expansion with an LLM-survival
+  check; **per-app styles** — bundle id / app name / URL host matchers, 4 tones.
+- **Model manager** — catalog pinned to HF commit SHAs, resumable download with SHA-256 check,
+  `--yes`-gated removal.
+
+Evidence:
+
+```
+# dictionary + snippet through the real Parakeet model and the insert path
+./target/debug/openflow --settings .scratch/m3-settings.json \
+    dictate crates/engines/tests/fixtures/speech_en.wav --no-llm --app com.apple.mail
+  raw: "mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel."
+  -> pasted "Mister Quilter is the OpenFlow, and we are glad to welcome the OpenFlow launch."
+     (dictionary sounds-like "apostle of the middle classes" -> OpenFlow; snippet "his gospel")
+
+# model manager against a scratch models dir (real network, hash-checked)
+OPENFLOW_MODELS=.scratch/models openflow models download silero-vad   # 2 MB installed
+OPENFLOW_MODELS=.scratch/models openflow models remove silero-vad     # would delete … pass --yes
+OPENFLOW_MODELS=.scratch/models openflow models remove silero-vad --yes
+
+# history view (core test covers the write path: history_records_inserted_text)
+OPENFLOW_HOME=.scratch/home openflow history
+  2025-10-15 16:20:00 dictation com.apple.mail           Send the deck by Friday.
+  2025-10-15 17:20:00 command   com.tinyspeck.slackmacgap Shorter.  [llm rejected]
+```
+
+Not verified: the plan's "settings UI" as a GUI — the Tauri shell does not exist here; the CLI
+commands above are the settings surface, and the same `Settings`/`Dictionary`/`Snippets` types are
+what a UI would bind to. Per-app tone differences are unit-tested (`style_follows_frontmost_app`)
+and prompt-tested; see the tone note in M2 about the 1.7B model.
