@@ -221,6 +221,15 @@ cargo check -p openflow-platform --target x86_64-pc-windows-gnu   # ok
 cargo check -p openflow-platform --target aarch64-apple-darwin    # ok
 cargo check -p openflow-engines --features cuda                   # FAILS here: the cudarc build
   # script runs `nvcc --version` and this box has no CUDA toolkit. Needs a 3070/3090 machine.
+
+openflow doctor      # new: settings + models dir, per-model installed state, what the settings
+                     # point at, ONNX Runtime path, cuda/metal/coreml built+available, permissions
+  cuda:       built false, available false
+  metal:      built false, available false
+  onnxruntime: .../libonnxruntime.so (true)
+  settings point at a model that is not downloaded: whisper-large-v3-turbo
+                     # on a 3070/3090 box: build with --features cuda, then `openflow doctor`
+                     # should print `built true, available true` before switching llm_model
 ```
 
 Not verified: any runtime behaviour on Windows/Linux desktops, Wayland (X11 only), and CUDA/Metal

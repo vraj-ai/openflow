@@ -96,6 +96,8 @@ enum Cmd {
     Daemon,
     /// Print the settings file path and contents.
     Settings,
+    /// Check this machine: models, accelerator backends, native library, permissions.
+    Doctor,
     /// Show, clear or export the dictation history.
     History {
         /// Show only the newest N entries.
@@ -313,6 +315,44 @@ fn main() -> anyhow::Result<()> {
         }
         Cmd::Eval(args) => eval::run(args, &settings, &root)?,
         Cmd::Daemon => daemon(settings, &root)?,
+        Cmd::Doctor => {
+            let perms = openflow_platform::permissions(false);
+            let backends = openflow_engines::backends();
+            println!("settings:   {}", settings_path.display());
+            println!("models dir: {}", root.display());
+            println!(
+                "cuda:       built {}, available {}",
+                backends.cuda_built, backends.cuda_available
+            );
+            println!(
+                "metal:      built {}, available {}",
+                backends.metal_built, backends.metal_available
+            );
+            println!("coreml:     built {}", backends.coreml_built);
+            match std::env::var_os("ORT_DYLIB_PATH") {
+                Some(p) => println!("onnxruntime: {} ({})", p.to_string_lossy(), Path::new(&p).exists()),
+                None => println!("onnxruntime: ORT_DYLIB_PATH is not set"),
+            }
+            println!("accessibility: {}, input monitoring: {}", perms.accessibility, perms.input_monitoring);
+            let mut missing = 0;
+            for m in catalog::all() {
+                let state = if m.is_installed(&root) { "ok" } else { missing += 1; "missing" };
+                println!("  {:<26} {state}", m.id);
+            }
+            if missing > 0 {
+                println!("{missing} model(s) missing: openflow models download <id>");
+            }
+            let used = [
+                &settings.stt.model,
+                &settings.stt.multilingual_model,
+                &settings.cleanup.llm_model,
+            ];
+            for id in used {
+                if !catalog::get(id).is_some_and(|m| m.is_installed(&root)) {
+                    println!("settings point at a model that is not downloaded: {id}");
+                }
+            }
+        }
         Cmd::History { limit, clear, json } => {
             let history = History::new(paths::history_file(), settings.history.max_entries);
             if clear {
