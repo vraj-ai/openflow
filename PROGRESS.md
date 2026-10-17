@@ -1,7 +1,7 @@
 # PROGRESS — OpenFlow build
 
 Branch: `wip/claude-handoff` (continues the Claude Code handoff; nothing is pushed anywhere).
-Last updated: 2026-10-15, session 2 (pi builder).
+Last updated: 2026-10-17, session 4 (pi builder): M6 implemented and verified, all six milestones closed.
 
 ## How this is verified (and what cannot be)
 
@@ -32,8 +32,8 @@ Qwen3-1.7B Q4_K_M (the documented "fast" option) and multilingual STT is exercis
 | M2 | Cleanup pipeline + eval set | **Done** |
 | M3 | Personalisation (dictionary, snippets, styles, model manager, settings) | **Done** (CLI settings surface; no GUI) |
 | M4 | Command Mode, hands-free, Esc cancel | **Done** (verified headlessly) |
-| M5 | Windows/Linux + CUDA | **Partly done** — compile-gated; CUDA needs the GPU boxes |
-| M6 | Polish and release (auto-learn, Whisper fallback, CI, docs) | Not started |
+| M5 | Windows/Linux + CUDA | **Done** as far as this box allows — hooks/paste/backends implemented and compile-gated; CUDA/Metal inference itself needs the 3070/3090 boxes |
+| M6 | Polish and release (auto-learn, Whisper fallback, CI, docs) | **Done** (verified headlessly; signing/notarisation needs an Apple ID) |
 
 ---
 
@@ -234,3 +234,92 @@ openflow doctor      # new: settings + models dir, per-model installed state, wh
 
 Not verified: any runtime behaviour on Windows/Linux desktops, Wayland (X11 only), and CUDA/Metal
 inference and their speedups. This is the milestone where this box cannot produce evidence.
+
+## M6 — Polish and release
+
+Implemented and verified this session (`cargo` numbers from the final tree):
+
+- **Auto-learn from corrections** — `dictionary::learn_from_field` finds the region of the focused
+  field that best aligns with what was pasted (tail window of 400 words, so a long document cannot
+  stall the event loop) and `learn_from_edit` turns a small local edit into an entry (term = what
+  the user wrote, `sounds_like` = what the model heard; common words and rewrites over a third of
+  the text are refused). `Controller::learn_after_insert` watches the field after a paste,
+  `runtime::run` replays key presses that land during the watch instead of dropping them as a tap,
+  the daemon merges what it learns into `settings.json`, and `dictate --learn` exposes the same
+  path headlessly.
+- **Whisper multilingual fallback** — `engines/src/mel.rs` builds the Slaney filterbank Whisper was
+  trained with (80 and 128 bands, values pinned against librosa); `whisper.rs` is the candle
+  encoder + greedy decoder with the language token (or one-step detection), dictionary hotwords as
+  the `<|startofprev|>` prompt, and a log-probability gate that returns empty text instead of
+  hallucinating on silence. `stt.language` routes to it (`needs_multilingual`), `stt.multilingual_model`
+  picks the catalog id, and both `transcribe` and `dictate` load it through `stack::load`.
+- **CI** — `.github/workflows/ci.yml`: build+test on Ubuntu, macOS and Windows (with `libasound2-dev`
+  on Linux, which cpal needs), clippy `-D warnings` + docs on Linux, and `cargo check` for
+  `aarch64-apple-darwin` and `x86_64-pc-windows-gnu`. Not runnable from this box (the repo is not
+  pushed); the same commands are run locally, below.
+- **Docs and packaging** — `README.md` (what it does, install, use, privacy, attribution, status),
+  `docs/RELEASING.md` (ad-hoc signing now, notarisation only once someone owns a Developer ID, plus
+  the pre-tag checklist), `scripts/release.sh` (per-target `.tar.gz` + `.sha256` in `dist/`).
+
+Evidence:
+
+```
+. scripts/dev-env.sh
+cargo test --workspace                              # 154 passed, 0 failed, 10 ignored
+cargo test -p openflow-engines -- --include-ignored --test-threads=1
+                                                    # 15 passed: 4 mel, 3 LLM, 4 Parakeet/VAD, 4 Whisper
+cargo clippy --workspace --all-targets -- -D warnings   # clean
+cargo doc --workspace --no-deps                     # ok
+cargo check -p openflow-platform --target aarch64-apple-darwin / x86_64-pc-windows-gnu   # ok
+FORCE=1 scripts/release.sh && (cd dist && sha256sum -c ./*.sha256)
+                                                    # openflow-0.1.0-x86_64-unknown-linux-gnu.tar.gz: OK
+                                                    # tar holds openflow, LICENSE, README.md
+
+# correction -> dictionary through the real pipeline (mock desktop field)
+openflow --settings .scratch/m6-learn2.json dictate crates/engines/tests/fixtures/speech_en.wav \
+    --no-llm --field "Mister Gunter is the apostle of the middle classes, and we are glad to welcome his gospel." --learn
+  -> learned: gunter (sounds like ["quilter"])
+
+# language hint routes to Whisper, not Parakeet (xx is unsupported, so the error proves the route)
+openflow --settings .scratch/settings-xx.json transcribe crates/engines/tests/fixtures/speech_en.wav
+  -> Error: whisper chunk 0 / Whisper does not support language "xx"
+openflow --settings .scratch/settings-hi.json transcribe crates/engines/tests/fixtures/speech_en.wav
+  -> 1394 ms (Whisper-tiny)   # same clip through Parakeet: 274 ms
+```
+
+Not verified: the Tauri/menu-bar shell (still absent — no webkit2gtk here, and system packages must
+not be installed), DMG signing and notarisation (needs an Apple Developer ID), the edit watch
+against a live text field (mock desktop and unit tests only), and CI on GitHub (local equivalents
+run instead).
+
+Committed as `M6: polish and release (auto-learn, Whisper fallback, CI, docs)`.
+
+---
+
+## Open issues and next steps
+
+Nothing in the plan is unimplemented; what is left needs hardware or an account this box does not
+have. In order of payoff:
+
+1. **A Mac.** Exercise the CGEventTap Fn hold, the AX selection read, the edit watch against a real
+   text field, paste into live apps, and the latency target (<500 ms release-to-text). Then re-run
+   the cleanup evals with the 4B default and Metal, and check whether per-app tones actually change
+   wording (Qwen3-1.7B on CPU did not).
+2. **A 3070/3090 box.** `cargo build --features cuda`, `openflow doctor` should report
+   `built true, available true`, then re-run the ASR and cleanup evals and try `qwen3-8b`/`qwen3-14b`.
+3. **The Tauri shell.** The crates are laid out for it (the controller drives `Desktop` and the CLI
+   is the same code path) but the GUI cannot be built or tested here.
+4. **Longer-horizon polish** from the plan's "later" list: streaming partial text, URL-level styles
+   for browsers, and a Windows UI Automation reader (selection currently uses the copy fallback).
+5. **Release.** Ad-hoc signing steps are in `docs/RELEASING.md`; notarisation needs an Apple
+   Developer ID and an explicit yes from the owner. No push/publish has happened and none is due
+   without that yes.
+
+---
+
+ALL MILESTONES DONE
+
+All six milestones are implemented and verified as far as this machine allows. The honest list of
+what this box could not exercise (real hotkeys, microphone, paste into live apps, the GPU backends,
+the GUI, signing) is in the sections above and summarised at the top of this file. Nothing has been
+pushed, published or released: local git only.

@@ -1,9 +1,11 @@
 //! Turns a finished recording into text in the user's app: speech-to-text,
 //! cleanup, insertion, Command Mode, and history.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::desktop::{self, AppInfo, Desktop, Keystroke, PasteTiming};
+use crate::dictionary::{self, DictEntry};
 use crate::distance::normalize_words;
 use crate::engine::{GenOptions, SpeechToText, SttHints, TextGenerator, VoiceActivity};
 use crate::guard::{self, Rejection};
@@ -20,6 +22,14 @@ pub const PARAKEET_LANGUAGES: &[&str] = &[
     "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt", "mt", "pl", "pt",
     "ro", "sk", "sl", "es", "sv", "ru", "uk",
 ];
+
+/// How often the auto-learn watch looks at the focused field.
+const POLL_MS: u64 = 500;
+
+/// Whether a language hint needs the multilingual fallback engine.
+pub fn needs_multilingual(language: Option<&str>) -> bool {
+    language.is_some_and(|l| !PARAKEET_LANGUAGES.contains(&l))
+}
 
 pub struct Engines {
     pub stt: Box<dyn SpeechToText>,
@@ -120,6 +130,8 @@ pub struct Controller<D: Desktop> {
     pub desktop: D,
     pub history: Option<History>,
     pub paste_timing: PasteTiming,
+    /// The text of the most recent insertion, so an edit of it can be learned from.
+    last_inserted: Option<String>,
 }
 
 impl<D: Desktop> Controller<D> {
@@ -128,7 +140,7 @@ impl<D: Desktop> Controller<D> {
             restore_after: Duration::from_millis(settings.insertion.restore_delay_ms),
             ..PasteTiming::default()
         };
-        Self { settings, engines, desktop, history, paste_timing }
+        Self { settings, engines, desktop, history, paste_timing, last_inserted: None }
     }
 
     fn transcribe(&mut self, samples: &[f32]) -> anyhow::Result<Option<String>> {
@@ -146,7 +158,7 @@ impl<D: Desktop> Controller<D> {
             language: self.settings.stt.language.clone(),
             hotwords: self.settings.dictionary.hotwords(),
         };
-        let use_multilingual = hints.language.as_deref().is_some_and(|l| !PARAKEET_LANGUAGES.contains(&l));
+        let use_multilingual = needs_multilingual(hints.language.as_deref());
         let engine = match (&mut self.engines.multilingual, use_multilingual) {
             (Some(m), true) => m,
             _ => &mut self.engines.stt,
@@ -191,6 +203,7 @@ impl<D: Desktop> Controller<D> {
         }
         if !cleaned.text.is_empty() {
             self.insert(&cleaned.text)?;
+            self.last_inserted = Some(cleaned.text.clone());
         }
         if cleaned.press_enter {
             self.desktop.send(Keystroke::Enter)?;
@@ -237,6 +250,62 @@ impl<D: Desktop> Controller<D> {
             self.desktop.set_clipboard_text(&out)?;
             self.desktop.notify("OpenFlow", &out);
             Ok(Outcome::Notified(out))
+        }
+    }
+
+    /// Learns dictionary entries from the user's correction of the text we
+    /// inserted. Returns what was learned (also added to `self.settings`).
+    pub fn note_edit(&mut self, field_text: &str) -> Vec<DictEntry> {
+        if !self.settings.learning.auto_learn {
+            return Vec::new();
+        }
+        let Some(inserted) = self.last_inserted.clone() else { return Vec::new() };
+        let learned = dictionary::learn_from_field(&inserted, field_text);
+        for entry in &learned {
+            self.settings.dictionary.upsert(entry.clone());
+        }
+        learned
+    }
+
+    /// Watches the focused field for up to `learning.watch_ms` after an insert
+    /// and learns from the first correction it sees. `interrupted` is set by the
+    /// caller's `sleep` (a key press arrived) and ends the watch, which runs on
+    /// the event-loop thread. `sleep` is injected so tests need no real waiting.
+    pub fn learn_after_insert(
+        &mut self,
+        interrupted: &AtomicBool,
+        sleep: &mut dyn FnMut(Duration),
+    ) -> Vec<DictEntry> {
+        if !self.settings.learning.auto_learn || self.last_inserted.is_none() {
+            return Vec::new();
+        }
+        let deadline = Instant::now() + Duration::from_millis(self.settings.learning.watch_ms);
+        let (mut seen, mut stable, mut unreadable) = (None, 0, 0);
+        loop {
+            match self.desktop.focused_field() {
+                Some(field) => {
+                    unreadable = 0;
+                    if seen.as_deref() == Some(field.value.as_str()) {
+                        stable += 1;
+                    } else {
+                        stable = 0;
+                        seen = Some(field.value);
+                    }
+                }
+                // No field to read (no Accessibility permission, or an app that
+                // does not expose one): do not hold the hotkey for the whole
+                // window, give it one more second and stop.
+                None if unreadable < 2 => unreadable += 1,
+                None => break,
+            }
+            if interrupted.load(Ordering::SeqCst) || stable >= 2 || Instant::now() >= deadline {
+                break;
+            }
+            sleep(Duration::from_millis(POLL_MS));
+        }
+        match seen {
+            Some(text) => self.note_edit(&text),
+            None => Vec::new(),
         }
     }
 

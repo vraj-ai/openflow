@@ -211,7 +211,7 @@ impl Machine {
             (Idle | Draining, Released) => (Idle, None),
             (Draining, Pressed(_)) => (Draining, None),
 
-            (Holding { mode, since }, Pressed(Trigger::Command)) if mode == Mode::Dictation => {
+            (Holding { mode: Mode::Dictation, since }, Pressed(Trigger::Command)) => {
                 (Holding { mode: Mode::Command, since }, Some(Action::SwitchMode(Mode::Command)))
             }
             (Holding { mode, .. }, Pressed(Trigger::HandsFree)) => (HandsFree { mode, armed: false }, None),
@@ -226,7 +226,7 @@ impl Machine {
             }
 
             (HandsFree { mode, armed: false }, Released) => (HandsFree { mode, armed: true }, None),
-            (HandsFree { mode, armed: false }, Pressed(Trigger::Command)) if mode == Mode::Dictation => {
+            (HandsFree { mode: Mode::Dictation, armed: false }, Pressed(Trigger::Command)) => {
                 (HandsFree { mode: Mode::Command, armed: false }, Some(Action::SwitchMode(Mode::Command)))
             }
             (HandsFree { armed: false, .. }, Pressed(_)) => (self.state, None),

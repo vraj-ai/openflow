@@ -62,7 +62,7 @@ pub struct LocalLlm {
 
 impl LocalLlm {
     pub fn load(gguf: &Path, tokenizer_json: &Path) -> Result<Self> {
-        let device = pick_device()?;
+        let device = crate::pick_device()?;
         let mut file =
             std::fs::File::open(gguf).with_context(|| format!("open {}", gguf.display()))?;
         let ct = gguf_file::Content::read(&mut file).context("read GGUF header")?;
@@ -130,10 +130,10 @@ impl LocalLlm {
 
     /// Weights whose KV cache holds `head`, plus its token count.
     fn weights_after(&mut self, head: &str) -> Result<(Weights, usize)> {
-        if let Some((cached, len, weights)) = &self.prefix {
-            if cached == head {
-                return Ok((weights.clone(), *len));
-            }
+        if let Some((cached, len, weights)) = &self.prefix
+            && cached == head
+        {
+            return Ok((weights.clone(), *len));
         }
         let tokens = self.encode(head)?;
         let mut weights = self.pristine.clone();
@@ -169,18 +169,6 @@ fn read_weights(
             Weights::Llama(Box::new(quantized_llama::ModelWeights::from_gguf(ct, file, device)?))
         }
     })
-}
-
-fn pick_device() -> Result<Device> {
-    #[cfg(feature = "metal")]
-    if candle_core::utils::metal_is_available() {
-        return Ok(Device::new_metal(0)?);
-    }
-    #[cfg(feature = "cuda")]
-    if candle_core::utils::cuda_is_available() {
-        return Ok(Device::new_cuda(0)?);
-    }
-    Ok(Device::Cpu)
 }
 
 impl TextGenerator for LocalLlm {

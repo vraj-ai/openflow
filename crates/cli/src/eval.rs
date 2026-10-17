@@ -15,10 +15,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(clap::Args)]
 pub struct EvalArgs {
-    /// JSONL of {"audio": "<file in eval/audio>", "text": "<reference>"}.
+    /// JSONL of `{"audio": "<file in eval/audio>", "text": "<reference>"}`.
     #[arg(long)]
     asr: Option<PathBuf>,
-    /// JSONL of {"raw": "...", "expected": "...", "tags": [...], "app": "..."}.
+    /// JSONL of `{"raw": "...", "expected": "...", "tags": [...], "app": "..."}`.
     #[arg(long)]
     cleanup: Option<PathBuf>,
     /// Evaluate cleanup with rules only.

@@ -32,10 +32,10 @@ impl KeyRouter {
             Key::Space => engaged_before || self.tracker.is_engaged(),
             _ => false,
         };
-        if let Some(event) = event {
-            if event != KeyEvent::Escape || self.recording.load(Ordering::SeqCst) {
-                let _ = self.tx.send(event);
-            }
+        if let Some(event) = event
+            && (event != KeyEvent::Escape || self.recording.load(Ordering::SeqCst))
+        {
+            let _ = self.tx.send(event);
         }
         swallow
     }

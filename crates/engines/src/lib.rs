@@ -3,11 +3,25 @@
 pub mod audio;
 pub mod download;
 pub mod llm;
+pub mod mel;
 pub mod ort_env;
 pub mod parakeet;
 pub mod stack;
 pub mod vad;
 pub mod whisper;
+
+/// The best device this build and this machine can offer.
+pub(crate) fn pick_device() -> anyhow::Result<candle_core::Device> {
+    #[cfg(feature = "metal")]
+    if candle_core::utils::metal_is_available() {
+        return Ok(candle_core::Device::new_metal(0)?);
+    }
+    #[cfg(feature = "cuda")]
+    if candle_core::utils::cuda_is_available() {
+        return Ok(candle_core::Device::new_cuda(0)?);
+    }
+    Ok(candle_core::Device::Cpu)
+}
 
 /// Which accelerators this build was compiled with, and whether this machine has
 /// one. Both matter: a CUDA build on a box without a driver still runs on CPU.

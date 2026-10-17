@@ -75,6 +75,10 @@ enum Cmd {
         /// Simulated focused text field contents.
         #[arg(long)]
         field: Option<String>,
+        /// Watch the simulated field and report the dictionary entries the
+        /// correction would teach (the same watch the daemon runs after a paste).
+        #[arg(long)]
+        learn: bool,
         #[arg(long)]
         no_llm: bool,
     },
@@ -209,7 +213,14 @@ fn main() -> anyhow::Result<()> {
                 language: s.stt.language.clone(),
                 hotwords: s.dictionary.hotwords(),
             };
-            let text = engines.stt.transcribe(&samples, &hints)?;
+            let text = if openflow_core::controller::needs_multilingual(s.stt.language.as_deref()) {
+                match engines.multilingual.as_mut() {
+                    Some(m) => m.transcribe(&samples, &hints)?,
+                    None => engines.stt.transcribe(&samples, &hints)?,
+                }
+            } else {
+                engines.stt.transcribe(&samples, &hints)?
+            };
             eprintln!("({} ms)", started.elapsed().as_millis());
             println!("{text}");
         }
@@ -223,7 +234,7 @@ fn main() -> anyhow::Result<()> {
             eprintln!("({} ms, llm: {}, rejected: {:?})", started.elapsed().as_millis(), out.used_llm, out.rejected);
             println!("{}", out.text);
         }
-        Cmd::Dictate { wav, mode, app, selection, field, no_llm } => {
+        Cmd::Dictate { wav, mode, app, selection, field, learn, no_llm } => {
             let mut s = settings.clone();
             s.cleanup.llm_enabled &= !no_llm || matches!(mode, ModeArg::Command);
             let engines = stack::load(&s, &root, stack::Load { vad: true, llm: s.cleanup.llm_enabled, multilingual: true })?;
@@ -246,11 +257,22 @@ fn main() -> anyhow::Result<()> {
                 report.used_llm,
                 report.rejected
             );
+            let mut learned = Vec::new();
+            if learn && mode == Mode::Dictation {
+                learned = controller.learn_after_insert(
+                    &std::sync::atomic::AtomicBool::new(false),
+                    &mut std::thread::sleep,
+                );
+                for entry in &learned {
+                    eprintln!("learned: {} (sounds like {:?})", entry.term, entry.sounds_like);
+                }
+            }
             println!("{}", serde_json::to_string_pretty(&serde_json::json!({
                 "outcome": format!("{:?}", report.outcome),
                 "pasted": desktop.pasted(),
                 "keys": format!("{:?}", desktop.state().keys),
                 "notifications": desktop.state().notifications,
+                "learned": learned.iter().map(|e| &e.term).collect::<Vec<_>>(),
             }))?);
         }
         Cmd::Dict { action } => {
@@ -314,7 +336,7 @@ fn main() -> anyhow::Result<()> {
             println!("{key} = {value}\n{}", settings_path.display());
         }
         Cmd::Eval(args) => eval::run(args, &settings, &root)?,
-        Cmd::Daemon => daemon(settings, &root)?,
+        Cmd::Daemon => daemon(settings, &root, &settings_path)?,
         Cmd::Doctor => {
             let perms = openflow_platform::permissions(false);
             let backends = openflow_engines::backends();
@@ -480,7 +502,7 @@ fn apply_setting(s: &mut Settings, key: &str, value: &str) -> anyhow::Result<()>
     Ok(())
 }
 
-fn daemon(settings: Settings, root: &Path) -> anyhow::Result<()> {
+fn daemon(settings: Settings, root: &Path, settings_path: &Path) -> anyhow::Result<()> {
     let perms = openflow_platform::permissions(true);
     if !perms.accessibility || !perms.input_monitoring {
         eprintln!("Grant Accessibility and Input Monitoring to this terminal in System Settings > Privacy & Security, then restart.");
@@ -497,12 +519,37 @@ fn daemon(settings: Settings, root: &Path) -> anyhow::Result<()> {
     let mut mic = Mic(openflow_platform::capture::Recorder::open_default()?);
     eprintln!("OpenFlow is listening. Hold {:?} to dictate, {:?} for Command Mode.", settings.hotkeys.dictate, settings.hotkeys.command);
     let mut controller = Controller::new(settings, engines, openflow_platform::SystemDesktop::new(), history);
-    runtime::run(rx, &mut machine, &mut mic, &mut controller, recording, &mut |status| match status {
-        Status::Recording(mode) => eprintln!("recording ({mode:?})"),
-        Status::Processing(_) => eprintln!("processing"),
-        Status::Cancelled => eprintln!("cancelled"),
-        Status::Done(r) => eprintln!("{:?}  [stt {} ms, cleanup {} ms]", r.outcome, r.stt.as_millis(), r.cleanup.as_millis()),
-        Status::Failed(e) => eprintln!("error: {e}"),
-    });
+    runtime::run(
+        rx,
+        &mut machine,
+        &mut mic,
+        &mut controller,
+        recording,
+        &mut |status| match status {
+            Status::Recording(mode) => eprintln!("recording ({mode:?})"),
+            Status::Processing(_) => eprintln!("processing"),
+            Status::Cancelled => eprintln!("cancelled"),
+            Status::Done(r) => eprintln!("{:?}  [stt {} ms, cleanup {} ms]", r.outcome, r.stt.as_millis(), r.cleanup.as_millis()),
+            Status::Failed(e) => eprintln!("error: {e}"),
+        },
+        &mut |learned| {
+            // Write straight to the settings file: a daemon can run for days, and
+            // the controller has already learned these entries in memory.
+            let save = Settings::load(settings_path).and_then(|mut s| {
+                for entry in learned {
+                    s.dictionary.upsert(entry.clone());
+                }
+                s.save(settings_path)
+            });
+            match save {
+                Ok(()) => eprintln!(
+                    "learned: {}",
+                    learned.iter().map(|e| e.term.as_str()).collect::<Vec<_>>().join(", ")
+                ),
+                Err(e) => eprintln!("could not save the learned words: {e:#}"),
+            }
+        },
+        &mut std::thread::sleep,
+    );
     Ok(())
 }

@@ -67,10 +67,10 @@ pub fn paste_text(desktop: &dyn Desktop, text: &str, timing: PasteTiming) -> any
     sleep(timing.settle);
     desktop.send(Keystroke::Paste)?;
     sleep(timing.restore_after);
-    if let Some(previous) = previous {
-        if desktop.clipboard_text().as_deref() == Some(text) {
-            desktop.set_clipboard_text(&previous)?;
-        }
+    if let Some(previous) = previous
+        && desktop.clipboard_text().as_deref() == Some(text)
+    {
+        desktop.set_clipboard_text(&previous)?;
     }
     Ok(())
 }
