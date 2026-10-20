@@ -22,12 +22,9 @@
 
 ## Demo
 
-<!-- TODO(demo): the demo video is still rendering. When ready:
-     1. add assets/demo.mp4 (<25 MB) and a ~10 s highlight assets/demo.gif (<8 MB)
-     2. replace this block with:
-        <p align="center"><img src="assets/demo.gif" alt="OpenFlow dictation demo" width="800"></p>
-        and link the full video: [Watch the full demo (MP4)](assets/demo.mp4) -->
-<p align="center"><i>Demo video coming soon.</i></p>
+<p align="center"><img src="assets/demo.gif" alt="OpenFlow dictation demo: holding fn, speaking into Slack, and the filler words being removed" width="800"></p>
+
+[Watch the full demo (MP4)](assets/demo.mp4)
 
 ## Why OpenFlow?
 
