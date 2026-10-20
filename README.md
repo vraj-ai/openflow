@@ -5,7 +5,11 @@ into whatever app has focus. Everything — speech recognition, voice-activity d
 cleanup model — runs on your machine. No account, no API key, no telemetry, no request to any host
 except `huggingface.co` when you download a model.
 
-MIT licensed. Working name in the build plan was "LocalFlow"; the repo is `openflow`.
+MIT licensed. An open-source alternative inspired by Wispr Flow. OpenFlow is an independent project,
+not affiliated with or endorsed by Wispr; "Wispr Flow" is a trademark of its owner.
+
+Why OpenFlow: free (MIT), works offline, no cloud and no subscription, pick your own speech and
+cleanup models, one codebase for macOS, Windows and Linux, and `openflow doctor` to diagnose setup.
 
 ## What it does
 
@@ -108,6 +112,20 @@ what could be verified on which machine is in `PROGRESS.md`.
 - Dependencies are MIT, Apache-2.0, BSD, ISC, Zlib or MPL-2.0 only. No GPL/LGPL/AGPL.
 
 ## Status
+
+| Area | Status |
+|---|---|
+| Linux build + `cargo test --workspace` | Verified (154 passed, 0 failed, 10 model-backed tests ignored by default) |
+| Pipeline end-to-end via CLI with real models (Parakeet, Whisper, Qwen cleanup) | Verified on a headless Linux CPU box |
+| Speed, same clip on box CPU | Parakeet 274 ms vs Whisper-tiny 1394 ms |
+| macOS arm64 / Windows | Compile-gated only (cross-check in CI); not run on real hardware |
+| Live hotkey capture, paste into apps, microphone | Not verified (no desktop/mic on build box) |
+| CUDA / Metal backends | Not verified |
+| GUI (Tauri) | Not built; CLI + daemon only |
+| Code signing / notarisation | Not done |
+
+macOS build-from-source notes: `docs/INSTALL-MAC.md`.
+
 
 Six build milestones are complete and verified as far as a headless Linux box allows: builds and
 tests run on Linux, macOS and Windows compile-gates, and the dictation pipeline was exercised

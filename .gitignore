@@ -13,3 +13,6 @@ todo.md
 /dist
 run-pi.sh
 pi.log
+/demo
+*.log
+!.audit/*.log
