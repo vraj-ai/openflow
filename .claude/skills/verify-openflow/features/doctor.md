@@ -19,7 +19,7 @@ Preconditions:
 - The release binary is built and `OPENFLOW_HOME` points at a fresh dir.
 
 - **Run doctor.** Run `target/release/openflow doctor`. Exit code `0`.
-- **Check paths.** stdout has the exact line `models dir: $OPENFLOW_MODELS` and `onnxruntime: $ORT_DYLIB_PATH (loads)`. A library that exists but cannot be loaded prints `(failed: <reason>)` on that line instead, with exit code still `0`.
+- **Check paths.** stdout has the exact line `models dir: $OPENFLOW_MODELS` and `onnxruntime: $ORT_DYLIB_PATH (loads)`. A library that exists but cannot be loaded prints `(failed: <reason>)` on that line instead, with exit code still `0`. With `ORT_DYLIB_PATH` unset, doctor still tries to load a `libonnxruntime` beside the executable and prints `onnxruntime: next to the executable (loads)`, or `onnxruntime: ORT_DYLIB_PATH is not set (failed: <reason>)` when none loads.
 - **Check models.** Lines such as `  parakeet-tdt-0.6b-v3       ok` show what later features can use.
 
 ## Gotchas

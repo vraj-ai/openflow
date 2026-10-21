@@ -10,10 +10,14 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
-fn doctor(ort: &Path, scratch: &Path) -> String {
-    let out = Command::new(env!("CARGO_BIN_EXE_openflow"))
+fn doctor(ort: Option<&Path>, scratch: &Path) -> String {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_openflow"));
+    match ort {
+        Some(ort) => cmd.env("ORT_DYLIB_PATH", ort),
+        None => cmd.env_remove("ORT_DYLIB_PATH"),
+    };
+    let out = cmd
         .arg("doctor")
-        .env("ORT_DYLIB_PATH", ort)
         .env("OPENFLOW_HOME", scratch.join("home"))
         .env("OPENFLOW_MODELS", scratch.join("models"))
         .output()
@@ -27,11 +31,28 @@ fn doctor_reports_a_broken_onnxruntime_as_failed() {
     let dir = scratch("broken");
     let fake = dir.join("libonnxruntime.so");
     std::fs::write(&fake, b"not a shared library").unwrap();
-    let stdout = doctor(&fake, &dir);
+    let stdout = doctor(Some(&fake), &dir);
     let prefix = format!("onnxruntime: {} (failed: ", fake.display());
     assert!(
         stdout.lines().any(|l| l.starts_with(&prefix) && l.ends_with(')')),
         "no line starting with {prefix:?} in:\n{stdout}"
+    );
+}
+
+#[test]
+fn doctor_reports_failure_when_no_onnxruntime_is_configured_or_beside_the_binary() {
+    let exe = Path::new(env!("CARGO_BIN_EXE_openflow"));
+    let beside = ["libonnxruntime.so", "libonnxruntime.dylib", "onnxruntime.dll"]
+        .iter()
+        .any(|name| exe.with_file_name(name).is_file());
+    if beside {
+        return;
+    }
+    let dir = scratch("unset");
+    let stdout = doctor(None, &dir);
+    assert!(
+        stdout.lines().any(|l| l.starts_with("onnxruntime: ORT_DYLIB_PATH is not set (failed: ") && l.ends_with(')')),
+        "no ORT_DYLIB_PATH-not-set failure line in:\n{stdout}"
     );
 }
 
@@ -43,7 +64,7 @@ fn doctor_reports_a_working_onnxruntime_as_loads() {
         .filter(|p| p.is_file())
         .expect("ORT_DYLIB_PATH must point at a real libonnxruntime file");
     let dir = scratch("working");
-    let stdout = doctor(&real, &dir);
+    let stdout = doctor(Some(&real), &dir);
     let want = format!("onnxruntime: {} (loads)", real.display());
     assert!(stdout.lines().any(|l| l == want), "no line {want:?} in:\n{stdout}");
 }
