@@ -111,10 +111,10 @@ else
   cp "$OUT" "$LOG/doctor.stdout"
   if [ "$RC" -eq 0 ] \
     && grep -Fqx "models dir: $OPENFLOW_MODELS" "$OUT" \
-    && grep -Fqx "onnxruntime: $ORT_DYLIB_PATH (true)" "$OUT"; then
-    record doctor PASS "models dir and onnxruntime resolved"
+    && grep -Fqx "onnxruntime: $ORT_DYLIB_PATH (loads)" "$OUT"; then
+    record doctor PASS "models dir resolved and onnxruntime loads"
   else
-    record doctor FAIL "exit $RC or models dir/onnxruntime line missing"
+    record doctor FAIL "exit $RC, models dir line missing, or onnxruntime does not load"
   fi
 
   run clean-rules "$BIN" clean --no-llm "$TRANSCRIPT"

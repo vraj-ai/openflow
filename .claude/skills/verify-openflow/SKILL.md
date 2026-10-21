@@ -30,7 +30,7 @@ Each run sets `OPENFLOW_HOME=<evidence dir>/home`, so the CLI reads and writes a
 
 ## Doctor
 
-`openflow doctor` is the read-only health check (step `doctor`). The step requires exit 0, a `models dir:` line equal to `$OPENFLOW_MODELS`, and an `onnxruntime: <ORT_DYLIB_PATH> (true)` line. The model table it prints decides which later steps run. A model listed as `missing` turns its steps into SKIPPED with the reason, never PASS.
+`openflow doctor` is the read-only health check (step `doctor`). The step requires exit 0, a `models dir:` line equal to `$OPENFLOW_MODELS`, and an `onnxruntime: <ORT_DYLIB_PATH> (loads)` line. The CLI prints `(loads)` only when it initializes ONNX Runtime from that library, and `(failed: <reason>)` otherwise, so a corrupt library fails this step even when no model is installed. The model table it prints decides which later steps run. A model listed as `missing` turns its steps into SKIPPED with the reason, never PASS.
 
 ## Drive
 
