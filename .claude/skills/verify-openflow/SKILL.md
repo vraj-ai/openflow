@@ -26,7 +26,7 @@ Relative paths in either knob resolve against the directory you ran the script f
 
 There is no server. "Launch" means `cargo build --release --workspace` (step `build`), producing `target/release/openflow`. The script sources `scripts/dev-env.sh`, which sets `CARGO_HOME`, `ORT_DYLIB_PATH` and `OPENFLOW_MODELS` per AGENTS.md. When rustup has toolchains but no default, the script exports `RUSTUP_TOOLCHAIN=stable` for its own process rather than writing to `~/.rustup`.
 
-Each run sets `OPENFLOW_HOME=<evidence dir>/home`, so the CLI reads and writes a fresh `settings.json` there and never touches the user's real settings or history. Two runs can go side by side, even in the same second, because the default evidence dir ends in a random suffix and each run gets its own home.
+Each run sets `OPENFLOW_HOME=<evidence dir>/home`, so the CLI starts from default settings and never touches the user's real settings or history. Two runs can go side by side, even in the same second, because the default evidence dir ends in a random suffix and each run gets its own home.
 
 ## Doctor
 
@@ -57,7 +57,7 @@ Everything lands in `.verify/<sha12>-<utc-ts>-<random>/`, which is gitignored:
 - `NN-<step>.cmd`, `.stdout`, `.stderr` and `.exit` for every command that ran.
 - `steps.tsv` with one row per step: step, status, exit, secs, note.
 - `summary.txt`, the same table printed at the end, headed by the full HEAD SHA and whether tracked files were dirty.
-- `home/settings.json`, the settings the run used.
+- `home/settings.json`, written only by `openflow set` in the clean-llm step. It does not exist when that step is skipped.
 
 A PASS means the real release binary produced the asserted output from real models. Report the `summary.txt` table and the evidence path, not a paraphrase. A SKIPPED step is not verified. Say which steps were skipped and why.
 
@@ -66,5 +66,7 @@ A PASS means the real release binary produced the asserted output from real mode
 The script starts no long-lived processes and leaves the evidence dir in place. To reclaim space, delete old `.verify/*` dirs by hand. Never delete the dir you are citing.
 
 ## Not covered
+
+The ignored real-model tests (`cargo test --workspace -- --include-ignored`, see AGENTS.md) are not run by `verify.sh`. The `test` step runs the default suite, and the CLI steps exercise only the fixtures listed above.
 
 The daemon's hotkey listener, microphone capture, and real paste/AX calls need desktop hardware and cannot run here. `dictate` covers the same controller with a simulated desktop. macOS and Windows code is only compile-checked: run `cargo check -p openflow-platform --target aarch64-apple-darwin` and `--target x86_64-pc-windows-gnu` when touching `crates/platform`.
