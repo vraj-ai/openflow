@@ -44,7 +44,7 @@ The steps run in this order. Each asserts a literal value.
 | `clean-rules` | `openflow clean --no-llm "<fixture>"` | stdout is `So I think we should ship it on on Friday` |
 | `clean-llm` | `openflow set cleanup.llm_model qwen3-1.7b`, then `openflow clean "<fixture>"` | stdout is `So I think we should ship it on Friday`. Needs `qwen3-1.7b` |
 | `transcribe` | `openflow transcribe crates/engines/tests/fixtures/speech_en.wav` | stdout is the LibriSpeech reference sentence. Needs `parakeet-tdt-0.6b-v3` and `silero-vad` |
-| `dictate` | `openflow dictate --no-llm <same wav>` | the `pasted` array holds the cleaned sentence. Same models |
+| `dictate` | `openflow dictate --no-llm <same wav>` | `"keys": "[Paste]"` exactly, so an extra key such as Enter fails, and the `pasted` array holds the cleaned sentence. Same models |
 
 The fixture is `fixtures/filler-transcript.txt` (`um, so, uh, I think we should ship it on on Friday`). The WAV is the committed LibriSpeech clip (CC BY 4.0, 183 KB) that the engine tests already use.
 

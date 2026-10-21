@@ -137,10 +137,11 @@ else
     expect transcribe "$SPEECH_RAW" "Parakeet + Silero on $WAV"
 
     run dictate "$BIN" dictate --no-llm "$WAV"
-    if [ "$RC" -eq 0 ] && grep -Fq "\"pasted\": [" "$OUT" && grep -Fqx "    \"$SPEECH_PASTED\"" "$OUT"; then
-      record dictate PASS "simulated desktop received the cleaned paste"
+    if [ "$RC" -eq 0 ] && grep -Fqx '  "keys": "[Paste]",' "$OUT" \
+      && grep -Fq "\"pasted\": [" "$OUT" && grep -Fqx "    \"$SPEECH_PASTED\"" "$OUT"; then
+      record dictate PASS "simulated desktop received only the paste chord and the cleaned text"
     else
-      record dictate FAIL "exit $RC or pasted text missing"
+      record dictate FAIL "exit $RC, keys not exactly [Paste], or pasted text missing"
     fi
   else
     record transcribe SKIPPED "doctor: parakeet-tdt-0.6b-v3 or silero-vad not downloaded in $OPENFLOW_MODELS"
