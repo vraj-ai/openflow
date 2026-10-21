@@ -352,7 +352,13 @@ fn main() -> anyhow::Result<()> {
             );
             println!("coreml:     built {}", backends.coreml_built);
             match std::env::var_os("ORT_DYLIB_PATH") {
-                Some(p) => println!("onnxruntime: {} ({})", p.to_string_lossy(), Path::new(&p).exists()),
+                Some(p) => match openflow_engines::ort_env::init() {
+                    Ok(()) => println!("onnxruntime: {} (loads)", p.to_string_lossy()),
+                    Err(err) => {
+                        let reason = format!("{err:#}").replace('\n', " ");
+                        println!("onnxruntime: {} (failed: {reason})", p.to_string_lossy());
+                    }
+                },
                 None => println!("onnxruntime: ORT_DYLIB_PATH is not set"),
             }
             println!("accessibility: {}, input monitoring: {}", perms.accessibility, perms.input_monitoring);
