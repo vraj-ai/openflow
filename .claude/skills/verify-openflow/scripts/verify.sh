@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# Builds OpenFlow, runs the workspace tests, and drives the release `openflow`
-# CLI the way a user would. Every command, its stdout, stderr and exit code
-# land in .verify/<sha>-<utc-ts>-<random>/. Exits 1 when any step FAILs or
-# evidence cannot be written, and 2 when setup fails (including a VERIFY_LOG_DIR
-# that already exists).
+# Builds OpenFlow, runs the workspace tests, drives the release CLI, and saves
+# each command with its stdout, stderr and exit code under .verify/.
+# Exit 1: a step FAILed or evidence could not be written. Exit 2: setup failed.
 set -uo pipefail
 
 die() { echo "verify.sh: $*" >&2; exit 2; }
@@ -44,18 +42,15 @@ STATUS="$(git status --porcelain)" || die "git status failed"
 if [ -n "$STATUS" ]; then DIRTY=yes; else DIRTY=no; fi
 if [ -n "$CALLER_LOG" ]; then
   mkdir -p -- "$(dirname -- "$CALLER_LOG")" || die "cannot create the parent of VERIFY_LOG_DIR=$CALLER_LOG"
-  # mkdir without -p is atomic: given the same path, exactly one of two runs
-  # wins, and a reused dir cannot mix this run's files with an older run's.
+  # Plain mkdir is atomic: of two runs given the same path, only one wins.
   mkdir -- "$CALLER_LOG" 2> /dev/null || die "VERIFY_LOG_DIR=$CALLER_LOG already exists or cannot be created; pass a path that does not exist"
   LOG="$CALLER_LOG"
 else
-  # mktemp -d creates the dir atomically, so concurrent runs in the same
-  # second still get separate evidence dirs and settings homes.
+  # mktemp keeps concurrent runs in the same second apart.
   mkdir -p "$ROOT/.verify" || die "cannot create $ROOT/.verify"
   LOG="$(mktemp -d "$ROOT/.verify/${SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")" || die "cannot create an evidence dir"
 fi
-# The CLI keeps settings and history under OPENFLOW_HOME; a per-run home keeps
-# the user's real settings untouched and leaves the run's settings as evidence.
+# A per-run home keeps the user's real settings and history untouched.
 export OPENFLOW_HOME="$LOG/home"
 mkdir -p "$OPENFLOW_HOME" || die "cannot create $OPENFLOW_HOME"
 
@@ -64,9 +59,8 @@ TRANSCRIPT="$(cat "$SKILL_DIR/fixtures/filler-transcript.txt")" || die "cannot r
 WAV="crates/engines/tests/fixtures/speech_en.wav"
 SPEECH_RAW="mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel."
 SPEECH_PASTED="Mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel"
-# The whole `openflow dictate --no-llm` stdout. Every field is deterministic
-# (timings go to stderr), so one literal comparison also rejects a sentence in
-# the wrong field, an extra paste, or an extra key.
+# Timings go to stderr, so stdout is deterministic and one literal comparison
+# also rejects a misplaced sentence, an extra paste or an extra key.
 DICTATE_WANT="$(printf '{\n  "keys": "[Paste]",\n  "learned": [],\n  "notifications": [],\n  "outcome": "Inserted(\\"%s\\")",\n  "pasted": [\n    "%s"\n  ]\n}' "$SPEECH_PASTED" "$SPEECH_PASTED")"
 
 N=0
@@ -75,7 +69,6 @@ RC=0
 FAILED=0
 printf 'step\tstatus\texit\tsecs\tnote\n' > "$LOG/steps.tsv" || die "cannot write $LOG/steps.tsv"
 
-# run <step> <cmd...>: runs the command, saving NN-step.{cmd,stdout,stderr,exit}.
 run() {
   local step=$1; shift
   N=$((N + 1))
@@ -92,16 +85,14 @@ run() {
   printf '  -> exit %d (%ds)\n' "$RC" "$SECS" >&2
 }
 
-# flat <text>: one line of at most 200 characters, so a note cannot add rows or columns to steps.tsv.
+# A note must not add rows or columns to steps.tsv.
 flat() {
   local s
   s="$(printf '%s' "$1" | tr '\t\r\n' '   ')"
   printf '%s' "${s:0:200}"
 }
 
-# record <step> <PASS|FAIL|SKIPPED> <note>: appends to steps.tsv. SKIPPED rows
-# have no command, so their exit and secs columns are "-". A row that cannot
-# be written fails the run.
+# SKIPPED rows have no command, so exit and secs are "-".
 record() {
   local exit_col="-" secs_col="-"
   [ "$2" != SKIPPED ] && exit_col=$RC && secs_col=$SECS
@@ -109,7 +100,6 @@ record() {
   printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$exit_col" "$secs_col" "$(flat "$3")" >> "$LOG/steps.tsv" || FAILED=1
 }
 
-# expect <step> <want-stdout> <note>: PASS iff exit 0 and stdout is exactly want.
 expect() {
   local got
   got="$(cat "$OUT")"
