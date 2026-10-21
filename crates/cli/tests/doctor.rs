@@ -36,11 +36,12 @@ fn doctor_reports_a_broken_onnxruntime_as_failed() {
 }
 
 #[test]
+#[ignore = "needs ORT_DYLIB_PATH pointing at a real libonnxruntime"]
 fn doctor_reports_a_working_onnxruntime_as_loads() {
-    let Some(real) = std::env::var_os("ORT_DYLIB_PATH").map(PathBuf::from).filter(|p| p.is_file()) else {
-        eprintln!("skipping: ORT_DYLIB_PATH does not point at a file");
-        return;
-    };
+    let real = std::env::var_os("ORT_DYLIB_PATH")
+        .map(PathBuf::from)
+        .filter(|p| p.is_file())
+        .expect("ORT_DYLIB_PATH must point at a real libonnxruntime file");
     let dir = scratch("working");
     let stdout = doctor(&real, &dir);
     let want = format!("onnxruntime: {} (loads)", real.display());
