@@ -19,7 +19,19 @@ Preconditions:
 
 - Doctor lists `parakeet-tdt-0.6b-v3  ok` and `silero-vad  ok`.
 
-- **Dictate the fixture.** Run `openflow dictate --no-llm crates/engines/tests/fixtures/speech_en.wav`. Exit code `0`. stdout JSON has `"keys": "[Paste]"` and a `pasted` array holding `Mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel`.
+- **Dictate the fixture.** Run `openflow dictate --no-llm crates/engines/tests/fixtures/speech_en.wav`. Exit code `0`. stdout is exactly this JSON, and verify.sh compares all of it:
+
+  ```json
+  {
+    "keys": "[Paste]",
+    "learned": [],
+    "notifications": [],
+    "outcome": "Inserted(\"Mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel\")",
+    "pasted": [
+      "Mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel"
+    ]
+  }
+  ```
 
 ## Gotchas
 

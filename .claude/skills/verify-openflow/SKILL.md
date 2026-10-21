@@ -17,7 +17,7 @@ It exits 0 when no step FAILs and every evidence file was written, 1 otherwise, 
 
 Environment knobs:
 
-- `OPENFLOW_MODELS=<dir>` points at a different models dir. The default is `<repo>/models`. Point it at an empty dir to check that the model steps report SKIPPED.
+- `OPENFLOW_MODELS=<dir>` points at a different models dir. The default comes from `scripts/dev-env.sh`, which resolves it from the git common dir: `models/` in the main checkout, shared by all its worktrees. Point it at an empty dir to check that the model steps report SKIPPED.
 - `VERIFY_LOG_DIR=<dir>` replaces the default evidence dir. The path must not already exist. The script creates it with a plain `mkdir` (missing parents are created) and exits 2 before running anything if that fails, so one run's evidence never mixes with another's and two runs given the same path cannot both proceed.
 
 Relative paths in either knob resolve against the directory you ran the script from.
@@ -34,7 +34,7 @@ Each run sets `OPENFLOW_HOME=<evidence dir>/home`, so the CLI starts from defaul
 
 ## Drive
 
-The steps run in this order. Each asserts a literal value.
+The steps run in this order. `build` and `test` pass on exit 0 (`build` also needs the binary to exist). The `doctor` step checks exit 0 and two exact lines. Every other step compares stdout to a literal.
 
 | Step | Command | Pass condition |
 |---|---|---|
