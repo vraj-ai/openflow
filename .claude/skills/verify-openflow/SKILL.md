@@ -5,7 +5,7 @@ description: Build OpenFlow, run the workspace tests, and drive the release `ope
 
 # Verify OpenFlow
 
-OpenFlow's user surfaces are the global-hotkey daemon, the Tauri tray app, and the `openflow` CLI. The dev box has no microphone, display, or webkit, so the CLI is the surface an agent can drive. `openflow dictate --wav` runs the full pipeline against a simulated desktop and prints what would be pasted. That makes it the closest stand-in for the live hotkey path.
+OpenFlow's user surfaces are the global-hotkey daemon, the Tauri tray app, and the `openflow` CLI. The dev box has no microphone, display, or webkit, so the CLI is the surface an agent can drive. `openflow dictate --wav` runs the full pipeline against a simulated desktop and prints what would be pasted. It is the closest stand-in for the live hotkey path.
 
 ## Run it
 

@@ -22,7 +22,7 @@
 
 ## Demo
 
-<p align="center"><img src="assets/demo.gif" alt="OpenFlow dictation demo: holding fn, speaking into Slack, and the filler words being removed" width="800"></p>
+<p align="center"><img src="assets/demo.gif" alt="Animated OpenFlow demo: a mock Slack window and the filler-word cleanup shown on the CLI" width="800"></p>
 
 [Watch the full demo (MP4)](assets/demo.mp4)
 
@@ -54,7 +54,7 @@
 
 ## OpenFlow vs Wispr Flow
 
-Facts only. Wispr Flow price from [wisprflow.ai/pricing](https://wisprflow.ai/pricing) and the other Wispr Flow claims from its help center pages linked below, all checked 2026-10-21.
+Facts only. The Wispr Flow price comes from [wisprflow.ai/pricing](https://wisprflow.ai/pricing). The other Wispr Flow claims link to its help center pages. All checked 2026-10-21.
 
 | | OpenFlow | Wispr Flow |
 |---|---|---|

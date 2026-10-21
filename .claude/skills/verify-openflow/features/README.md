@@ -1,6 +1,6 @@
 # OpenFlow verification map
 
-This map lists the user-facing features an agent can drive on the headless dev box through the release `openflow` CLI. `scripts/verify.sh` drives one path through each of the four: the `doctor` checks, `clean-rules` and `clean-llm`, `transcribe-parakeet`, and `dictate-paste`. It does not drive `clean-style`, `transcribe-no-vad`, `transcribe-whisper`, `dictate-command` or `dictate-learn`. Use a feature file as the recipe when checking one of those by hand.
+This map lists the features an agent can drive on the headless dev box through the release `openflow` CLI. `scripts/verify.sh` drives one path through each of the four: the `doctor` checks, `clean-rules` and `clean-llm`, `transcribe-parakeet`, and `dictate-paste`. It does not drive `clean-style`, `transcribe-no-vad`, `transcribe-whisper`, `dictate-command` or `dictate-learn`. Use a feature file as the recipe when checking one of those by hand.
 
 ## Baseline preconditions
 
@@ -16,7 +16,7 @@ This map lists the user-facing features an agent can drive on the headless dev b
 
 ## Features
 
-- [Doctor](./doctor.md) covers the machine health report.
-- [Text cleanup](./clean.md) covers the rule pass and the LLM pass on typed text.
-- [Transcribe](./transcribe.md) covers speech-to-text on a WAV.
-- [Dictate](./dictate.md) covers the full pipeline into a simulated desktop, including the Command Mode and learn sub-features, which verify.sh does not run.
+- [Doctor](./doctor.md): the machine health report.
+- [Text cleanup](./clean.md): the rule pass and the LLM pass on typed text.
+- [Transcribe](./transcribe.md): speech-to-text on a WAV.
+- [Dictate](./dictate.md): the full pipeline into a simulated desktop, including the Command Mode and learn sub-features that verify.sh does not run.
