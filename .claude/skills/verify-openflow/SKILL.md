@@ -18,13 +18,15 @@ It exits 0 when no step FAILs and 1 otherwise. A cold release build plus the tes
 Environment knobs:
 
 - `OPENFLOW_MODELS=<dir>` points at a different models dir. The default is `<repo>/models`. Point it at an empty dir to check that the model steps report SKIPPED.
-- `VERIFY_LOG_DIR=<dir>` replaces the default evidence dir.
+- `VERIFY_LOG_DIR=<dir>` replaces the default evidence dir. The script exits 2 before running anything if that path already exists and is not an empty directory, so one run's evidence never mixes with another's.
+
+Relative paths in either knob resolve against the directory you ran the script from.
 
 ## Launch
 
 There is no server. "Launch" means `cargo build --release --workspace` (step `build`), producing `target/release/openflow`. The script sources `scripts/dev-env.sh`, which sets `CARGO_HOME`, `ORT_DYLIB_PATH` and `OPENFLOW_MODELS` per AGENTS.md. When rustup has toolchains but no default, the script exports `RUSTUP_TOOLCHAIN=stable` for its own process rather than writing to `~/.rustup`.
 
-Each run sets `OPENFLOW_HOME=<evidence dir>/home`, so the CLI reads and writes a fresh `settings.json` there and never touches the user's real settings or history. Two runs can go side by side because each gets its own evidence dir and home.
+Each run sets `OPENFLOW_HOME=<evidence dir>/home`, so the CLI reads and writes a fresh `settings.json` there and never touches the user's real settings or history. Two runs can go side by side, even in the same second, because the default evidence dir ends in a random suffix and each run gets its own home.
 
 ## Doctor
 
@@ -50,7 +52,7 @@ To drive a single feature by hand, see `features/README.md`.
 
 ## Evidence
 
-Everything lands in `.verify/<sha12>-<utc-ts>/`, which is gitignored:
+Everything lands in `.verify/<sha12>-<utc-ts>-<random>/`, which is gitignored:
 
 - `NN-<step>.cmd`, `.stdout`, `.stderr` and `.exit` for every command that ran.
 - `steps.tsv` with one row per step: step, status, exit, secs, note.

@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # Builds OpenFlow, runs the workspace tests, and drives the release `openflow`
 # CLI the way a user would. Every command, its stdout, stderr and exit code
-# land in .verify/<sha>-<utc-ts>/. Exits 1 when any step FAILs.
+# land in .verify/<sha>-<utc-ts>-<random>/. Exits 1 when any step FAILs and 2
+# when VERIFY_LOG_DIR already holds files.
 set -uo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT="$(git -C "$SKILL_DIR" rev-parse --show-toplevel)"
+# Overrides are relative to where the caller ran this, not to the repo root
+# the script moves into next.
+abs() { realpath -ms -- "$1"; }
+CALLER_MODELS=""
+[ -n "${OPENFLOW_MODELS:-}" ] && CALLER_MODELS="$(abs "$OPENFLOW_MODELS")"
+CALLER_LOG=""
+[ -n "${VERIFY_LOG_DIR:-}" ] && CALLER_LOG="$(abs "$VERIFY_LOG_DIR")"
 cd "$ROOT"
-CALLER_MODELS="${OPENFLOW_MODELS:-}"
 # shellcheck source=/dev/null
 . scripts/dev-env.sh
 [ -n "$CALLER_MODELS" ] && export OPENFLOW_MODELS="$CALLER_MODELS"
@@ -19,7 +26,20 @@ fi
 
 SHA="$(git rev-parse HEAD)"
 DIRTY="$(git status --porcelain --untracked-files=no | grep -q . && echo yes || echo no)"
-LOG="${VERIFY_LOG_DIR:-$ROOT/.verify/${SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)}"
+if [ -n "$CALLER_LOG" ]; then
+  # Reusing a dir would mix this run's files with an older run's evidence.
+  if [ -e "$CALLER_LOG" ] && { [ ! -d "$CALLER_LOG" ] || [ -n "$(ls -A -- "$CALLER_LOG")" ]; }; then
+    echo "verify.sh: VERIFY_LOG_DIR=$CALLER_LOG exists and is not an empty directory" >&2
+    exit 2
+  fi
+  mkdir -p "$CALLER_LOG"
+  LOG="$CALLER_LOG"
+else
+  # mktemp -d creates the dir atomically, so concurrent runs in the same
+  # second still get separate evidence dirs and settings homes.
+  mkdir -p "$ROOT/.verify"
+  LOG="$(mktemp -d "$ROOT/.verify/${SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
+fi
 # The CLI keeps settings and history under OPENFLOW_HOME; a per-run home keeps
 # the user's real settings untouched and leaves the run's settings as evidence.
 export OPENFLOW_HOME="$LOG/home"
