@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Builds OpenFlow, runs the workspace tests, and drives the release `openflow`
 # CLI the way a user would. Every command, its stdout, stderr and exit code
-# land in .verify/<sha>-<utc-ts>-<random>/. Exits 1 when any step FAILs and 2
-# when VERIFY_LOG_DIR already holds files.
+# land in .verify/<sha>-<utc-ts>-<random>/. Exits 1 when any step FAILs or
+# evidence cannot be written, and 2 when setup fails (including a VERIFY_LOG_DIR
+# that already exists).
 set -uo pipefail
 
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ROOT="$(git -C "$SKILL_DIR" rev-parse --show-toplevel)"
+die() { echo "verify.sh: $*" >&2; exit 2; }
+
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || die "cannot resolve the skill directory"
+ROOT="$(git -C "$SKILL_DIR" rev-parse --show-toplevel)" || die "$SKILL_DIR is not inside a git checkout"
 # Overrides are relative to where the caller ran this, not to the repo root
 # the script moves into next.
 abs() { realpath -ms -- "$1"; }
@@ -14,48 +17,63 @@ CALLER_MODELS=""
 [ -n "${OPENFLOW_MODELS:-}" ] && CALLER_MODELS="$(abs "$OPENFLOW_MODELS")"
 CALLER_LOG=""
 [ -n "${VERIFY_LOG_DIR:-}" ] && CALLER_LOG="$(abs "$VERIFY_LOG_DIR")"
-cd "$ROOT"
+cd "$ROOT" || die "cannot cd to $ROOT"
 # shellcheck source=/dev/null
-. scripts/dev-env.sh
+. scripts/dev-env.sh || die "scripts/dev-env.sh failed"
 [ -n "$CALLER_MODELS" ] && export OPENFLOW_MODELS="$CALLER_MODELS"
+for v in CARGO_HOME ORT_DYLIB_PATH OPENFLOW_MODELS; do
+  [ -n "${!v:-}" ] || die "scripts/dev-env.sh left $v empty"
+done
+# Cargo falls back to ~/.cargo when this is relative or missing; AGENTS.md forbids touching ~.
+case "$CARGO_HOME" in /*) ;; *) die "CARGO_HOME must be absolute, got $CARGO_HOME" ;; esac
+# BIN below is $ROOT/target/release/openflow, so cargo must build exactly there.
+export CARGO_TARGET_DIR="$ROOT/target"
+unset CARGO_BUILD_TARGET CARGO_BUILD_TARGET_DIR
+# The engines honour OPENFLOW_MODEL_DIR_<ID> (crates/engines/src/stack.rs) but
+# doctor reads only OPENFLOW_MODELS, so an inherited override would let a step
+# pass against a model that doctor reported as missing.
+unset "${!OPENFLOW_MODEL_DIR_@}"
 # A rustup install with toolchains but no default makes every cargo call fail;
 # pin stable for this process instead of writing a default into ~/.rustup.
 if command -v rustup > /dev/null && ! rustup show active-toolchain > /dev/null 2>&1; then
   export RUSTUP_TOOLCHAIN=stable
 fi
 
-SHA="$(git rev-parse HEAD)"
-DIRTY="$(git status --porcelain --untracked-files=no | grep -q . && echo yes || echo no)"
+SHA="$(git rev-parse HEAD)" || die "cannot read HEAD"
+STATUS="$(git status --porcelain)" || die "git status failed"
+if [ -n "$STATUS" ]; then DIRTY=yes; else DIRTY=no; fi
 if [ -n "$CALLER_LOG" ]; then
-  # Reusing a dir would mix this run's files with an older run's evidence.
-  if [ -e "$CALLER_LOG" ] && { [ ! -d "$CALLER_LOG" ] || [ -n "$(ls -A -- "$CALLER_LOG")" ]; }; then
-    echo "verify.sh: VERIFY_LOG_DIR=$CALLER_LOG exists and is not an empty directory" >&2
-    exit 2
-  fi
-  mkdir -p "$CALLER_LOG"
+  mkdir -p -- "$(dirname -- "$CALLER_LOG")" || die "cannot create the parent of VERIFY_LOG_DIR=$CALLER_LOG"
+  # mkdir without -p is atomic: given the same path, exactly one of two runs
+  # wins, and a reused dir cannot mix this run's files with an older run's.
+  mkdir -- "$CALLER_LOG" 2> /dev/null || die "VERIFY_LOG_DIR=$CALLER_LOG already exists or cannot be created; pass a path that does not exist"
   LOG="$CALLER_LOG"
 else
   # mktemp -d creates the dir atomically, so concurrent runs in the same
   # second still get separate evidence dirs and settings homes.
-  mkdir -p "$ROOT/.verify"
-  LOG="$(mktemp -d "$ROOT/.verify/${SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
+  mkdir -p "$ROOT/.verify" || die "cannot create $ROOT/.verify"
+  LOG="$(mktemp -d "$ROOT/.verify/${SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")" || die "cannot create an evidence dir"
 fi
 # The CLI keeps settings and history under OPENFLOW_HOME; a per-run home keeps
 # the user's real settings untouched and leaves the run's settings as evidence.
 export OPENFLOW_HOME="$LOG/home"
-mkdir -p "$OPENFLOW_HOME"
+mkdir -p "$OPENFLOW_HOME" || die "cannot create $OPENFLOW_HOME"
 
 BIN="$ROOT/target/release/openflow"
-TRANSCRIPT="$(cat "$SKILL_DIR/fixtures/filler-transcript.txt")"
+TRANSCRIPT="$(cat "$SKILL_DIR/fixtures/filler-transcript.txt")" || die "cannot read the filler transcript fixture"
 WAV="crates/engines/tests/fixtures/speech_en.wav"
 SPEECH_RAW="mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel."
 SPEECH_PASTED="Mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel"
+# The whole `openflow dictate --no-llm` stdout. Every field is deterministic
+# (timings go to stderr), so one literal comparison also rejects a sentence in
+# the wrong field, an extra paste, or an extra key.
+DICTATE_WANT="$(printf '{\n  "keys": "[Paste]",\n  "learned": [],\n  "notifications": [],\n  "outcome": "Inserted(\\"%s\\")",\n  "pasted": [\n    "%s"\n  ]\n}' "$SPEECH_PASTED" "$SPEECH_PASTED")"
 
 N=0
 OUT=""
 RC=0
 FAILED=0
-printf 'step\tstatus\texit\tsecs\tnote\n' > "$LOG/steps.tsv"
+printf 'step\tstatus\texit\tsecs\tnote\n' > "$LOG/steps.tsv" || die "cannot write $LOG/steps.tsv"
 
 # run <step> <cmd...>: runs the command, saving NN-step.{cmd,stdout,stderr,exit}.
 run() {
@@ -74,13 +92,21 @@ run() {
   printf '  -> exit %d (%ds)\n' "$RC" "$SECS" >&2
 }
 
+# flat <text>: one line of at most 200 characters, so a note cannot add rows or columns to steps.tsv.
+flat() {
+  local s
+  s="$(printf '%s' "$1" | tr '\t\r\n' '   ')"
+  printf '%s' "${s:0:200}"
+}
+
 # record <step> <PASS|FAIL|SKIPPED> <note>: appends to steps.tsv. SKIPPED rows
-# have no command, so their exit and secs columns are "-".
+# have no command, so their exit and secs columns are "-". A row that cannot
+# be written fails the run.
 record() {
   local exit_col="-" secs_col="-"
   [ "$2" != SKIPPED ] && exit_col=$RC && secs_col=$SECS
   [ "$2" = FAIL ] && FAILED=1
-  printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$exit_col" "$secs_col" "$3" >> "$LOG/steps.tsv"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$exit_col" "$secs_col" "$(flat "$3")" >> "$LOG/steps.tsv" || FAILED=1
 }
 
 # expect <step> <want-stdout> <note>: PASS iff exit 0 and stdout is exactly want.
@@ -94,13 +120,13 @@ expect() {
   fi
 }
 
-model_ok() { grep -Eq "^[[:space:]]+$1[[:space:]]+ok$" "$LOG/doctor.stdout" 2>/dev/null; }
+model_ok() { awk -v id="$1" '$1 == id && $2 == "ok" { found = 1 } END { exit !found }' "$LOG/doctor.stdout" 2> /dev/null; }
 
-run build cargo build --release --workspace
+run build cargo build --release --workspace --locked
 BUILT=1
 if [ "$RC" -eq 0 ] && [ -x "$BIN" ]; then BUILT=0; record build PASS "$BIN"; else record build FAIL "cargo build exit $RC"; fi
 
-run test cargo test --workspace
+run test cargo test --workspace --locked
 TOTALS="$(awk '/^test result:/ {p+=$4; f+=$6; i+=$8} END {printf "%d passed, %d failed, %d ignored", p, f, i}' "$OUT")"
 if [ "$RC" -eq 0 ]; then record test PASS "$TOTALS"; else record test FAIL "exit $RC; $TOTALS"; fi
 
@@ -137,26 +163,23 @@ else
     expect transcribe "$SPEECH_RAW" "Parakeet + Silero on $WAV"
 
     run dictate "$BIN" dictate --no-llm "$WAV"
-    if [ "$RC" -eq 0 ] && grep -Fqx '  "keys": "[Paste]",' "$OUT" \
-      && grep -Fq "\"pasted\": [" "$OUT" && grep -Fqx "    \"$SPEECH_PASTED\"" "$OUT"; then
-      record dictate PASS "simulated desktop received only the paste chord and the cleaned text"
-    else
-      record dictate FAIL "exit $RC, keys not exactly [Paste], or pasted text missing"
-    fi
+    expect dictate "$DICTATE_WANT" "simulated desktop received only the paste chord and the cleaned text"
   else
     record transcribe SKIPPED "doctor: parakeet-tdt-0.6b-v3 or silero-vad not downloaded in $OPENFLOW_MODELS"
     record dictate SKIPPED "doctor: parakeet-tdt-0.6b-v3 or silero-vad not downloaded in $OPENFLOW_MODELS"
   fi
 fi
 
-{
-  echo
-  echo "OpenFlow verify  HEAD $SHA  (dirty tracked files: $DIRTY)"
-  echo "evidence: $LOG"
-  echo
-  awk -F'\t' '{printf "%-12s %-8s %-5s %-5s %s\n", $1, $2, $3, $4, $5}' "$LOG/steps.tsv"
-  echo
-  if [ "$FAILED" -eq 0 ]; then echo "RESULT: PASS (no FAIL rows)"; else echo "RESULT: FAIL"; fi
-} | tee "$LOG/summary.txt"
+TABLE="$(awk -F'\t' '{printf "%-12s %-8s %-5s %-5s %s\n", $1, $2, $3, $4, $5}' "$LOG/steps.tsv")" || {
+  FAILED=1
+  TABLE="(could not read $LOG/steps.tsv)"
+}
+result_line() { if [ "$FAILED" -eq 0 ]; then echo "RESULT: PASS (no FAIL rows)"; else echo "RESULT: FAIL"; fi; }
+BODY="$(printf '\nOpenFlow verify  HEAD %s  (uncommitted or untracked files: %s)\nevidence: %s\n\n%s\n' "$SHA" "$DIRTY" "$LOG" "$TABLE")"
+if ! printf '%s\n\n%s\n' "$BODY" "$(result_line)" > "$LOG/summary.txt" || [ ! -s "$LOG/summary.txt" ]; then
+  FAILED=1
+  echo "verify.sh: could not write $LOG/summary.txt" >&2
+fi
+printf '%s\n\n%s\n' "$BODY" "$(result_line)"
 
 exit "$FAILED"

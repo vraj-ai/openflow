@@ -13,18 +13,18 @@ OpenFlow's user surfaces are the global-hotkey daemon, the Tauri tray app, and t
 .claude/skills/verify-openflow/scripts/verify.sh
 ```
 
-It exits 0 when no step FAILs and 1 otherwise. A cold release build plus the test build takes several minutes. Warm reruns take about 40 s, most of it the Qwen3-1.7B cleanup pass.
+It exits 0 when no step FAILs and every evidence file was written, 1 otherwise, and 2 when setup fails before any step runs (for example `scripts/dev-env.sh` leaves `CARGO_HOME`, `ORT_DYLIB_PATH` or `OPENFLOW_MODELS` empty). A cold release build plus the test build takes several minutes. Warm reruns take about 40 s, most of it the Qwen3-1.7B cleanup pass.
 
 Environment knobs:
 
 - `OPENFLOW_MODELS=<dir>` points at a different models dir. The default is `<repo>/models`. Point it at an empty dir to check that the model steps report SKIPPED.
-- `VERIFY_LOG_DIR=<dir>` replaces the default evidence dir. The script exits 2 before running anything if that path already exists and is not an empty directory, so one run's evidence never mixes with another's.
+- `VERIFY_LOG_DIR=<dir>` replaces the default evidence dir. The path must not already exist. The script creates it with a plain `mkdir` (missing parents are created) and exits 2 before running anything if that fails, so one run's evidence never mixes with another's and two runs given the same path cannot both proceed.
 
 Relative paths in either knob resolve against the directory you ran the script from.
 
 ## Launch
 
-There is no server. "Launch" means `cargo build --release --workspace` (step `build`), producing `target/release/openflow`. The script sources `scripts/dev-env.sh`, which sets `CARGO_HOME`, `ORT_DYLIB_PATH` and `OPENFLOW_MODELS` per AGENTS.md. When rustup has toolchains but no default, the script exports `RUSTUP_TOOLCHAIN=stable` for its own process rather than writing to `~/.rustup`.
+There is no server. "Launch" means `cargo build --release --workspace --locked` (step `build`), producing `target/release/openflow`. The script sources `scripts/dev-env.sh`, which sets `CARGO_HOME`, `ORT_DYLIB_PATH` and `OPENFLOW_MODELS` per AGENTS.md, and aborts if any of them is empty. It then sets `CARGO_TARGET_DIR=<repo>/target` and unsets `CARGO_BUILD_TARGET`, so the binary under test is the one cargo just built. It also unsets every `OPENFLOW_MODEL_DIR_<ID>` override, which the engines honour but `openflow doctor` ignores. When rustup has toolchains but no default, the script exports `RUSTUP_TOOLCHAIN=stable` for its own process rather than writing to `~/.rustup`.
 
 Each run sets `OPENFLOW_HOME=<evidence dir>/home`, so the CLI starts from default settings and never touches the user's real settings or history. Two runs can go side by side, even in the same second, because the default evidence dir ends in a random suffix and each run gets its own home.
 
@@ -38,13 +38,13 @@ The steps run in this order. Each asserts a literal value.
 
 | Step | Command | Pass condition |
 |---|---|---|
-| `build` | `cargo build --release --workspace` | exit 0 and the binary exists |
-| `test` | `cargo test --workspace` | exit 0. The note sums the passed, failed and ignored counts |
+| `build` | `cargo build --release --workspace --locked` | exit 0 and the binary exists |
+| `test` | `cargo test --workspace --locked` | exit 0. The note sums the passed, failed and ignored counts |
 | `doctor` | `openflow doctor` | see Doctor |
 | `clean-rules` | `openflow clean --no-llm "<fixture>"` | stdout is `So I think we should ship it on on Friday` |
 | `clean-llm` | `openflow set cleanup.llm_model qwen3-1.7b`, then `openflow clean "<fixture>"` | stdout is `So I think we should ship it on Friday`. Needs `qwen3-1.7b` |
 | `transcribe` | `openflow transcribe crates/engines/tests/fixtures/speech_en.wav` | stdout is the LibriSpeech reference sentence. Needs `parakeet-tdt-0.6b-v3` and `silero-vad` |
-| `dictate` | `openflow dictate --no-llm <same wav>` | `"keys": "[Paste]"` exactly, so an extra key such as Enter fails, and the `pasted` array holds the cleaned sentence. Same models |
+| `dictate` | `openflow dictate --no-llm <same wav>` | the whole stdout JSON equals one literal: `keys` is `[Paste]`, `pasted` holds only the cleaned sentence, and `learned`, `notifications` and `outcome` are fixed. A sentence in the wrong field, an extra paste or an extra key such as Enter fails. Same models |
 
 The fixture is `fixtures/filler-transcript.txt` (`um, so, uh, I think we should ship it on on Friday`). The WAV is the committed LibriSpeech clip (CC BY 4.0, 183 KB) that the engine tests already use.
 
@@ -56,7 +56,7 @@ Everything lands in `.verify/<sha12>-<utc-ts>-<random>/`, which is gitignored:
 
 - `NN-<step>.cmd`, `.stdout`, `.stderr` and `.exit` for every command that ran.
 - `steps.tsv` with one row per step: step, status, exit, secs, note.
-- `summary.txt`, the same table printed at the end, headed by the full HEAD SHA and whether tracked files were dirty.
+- `summary.txt`, the same table printed at the end, headed by the full HEAD SHA and whether the worktree had uncommitted or untracked files. Failure notes in `steps.tsv` are flattened to one line of at most 200 characters.
 - `home/settings.json`, written only by `openflow set` in the clean-llm step. It does not exist when that step is skipped.
 
 A PASS means the real release binary produced the asserted output from real models. Report the `summary.txt` table and the evidence path, not a paraphrase. A SKIPPED step is not verified. Say which steps were skipped and why.
