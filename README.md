@@ -54,15 +54,14 @@
 
 ## OpenFlow vs Wispr Flow
 
-Facts only. Wispr Flow details from [wisprflow.ai/pricing](https://wisprflow.ai/pricing), checked 2026-10-20.
+Facts only. Wispr Flow price from [wisprflow.ai/pricing](https://wisprflow.ai/pricing) and the other Wispr Flow claims from its help center pages linked below, all checked 2026-10-21.
 
 | | OpenFlow | Wispr Flow |
 |---|---|---|
 | Price | Free (MIT) | Free tier; Pro listed at $12/user/mo billed annually ($15 monthly) |
 | Source code | Open source (MIT) | Proprietary |
-| Where speech is processed | On your device | Cloud service |
-| Account required | No | Yes |
-| Works offline | Yes, after models are downloaded | No |
+| Where speech is processed | On your device | Cloud service (["Dictation is transcribed in the cloud"](https://docs.wisprflow.ai/articles/4048537120-what-to-expect-from-flow-accuracy-and-known-limitations)) |
+| Works offline | Yes, after models are downloaded | No ([internet connection required for transcription](https://docs.wisprflow.ai/articles/2772472373-what-is-flow); on Android, [offline transcription is unavailable](https://docs.wisprflow.ai/articles/6344532666-android-system-requirements)) |
 | Choose your own models | Yes (speech + cleanup) | No |
 | Platforms | macOS, Windows, Linux (X11) — from source | Vendor-supported apps |
 | Polished GUI / signed installer | Not yet (CLI + daemon) | Yes |
