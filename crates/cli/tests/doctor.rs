@@ -1,0 +1,70 @@
+//! `openflow doctor` must report whether ONNX Runtime actually loads, not just whether the path exists.
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+fn scratch(name: &str) -> PathBuf {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("doctor-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn doctor(ort: Option<&Path>, scratch: &Path) -> String {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_openflow"));
+    match ort {
+        Some(ort) => cmd.env("ORT_DYLIB_PATH", ort),
+        None => cmd.env_remove("ORT_DYLIB_PATH"),
+    };
+    let out = cmd
+        .arg("doctor")
+        .env("OPENFLOW_HOME", scratch.join("home"))
+        .env("OPENFLOW_MODELS", scratch.join("models"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "doctor exited {:?}: {}", out.status.code(), String::from_utf8_lossy(&out.stderr));
+    String::from_utf8(out.stdout).unwrap()
+}
+
+#[test]
+fn doctor_reports_a_broken_onnxruntime_as_failed() {
+    let dir = scratch("broken");
+    let fake = dir.join("libonnxruntime.so");
+    std::fs::write(&fake, b"not a shared library").unwrap();
+    let stdout = doctor(Some(&fake), &dir);
+    let prefix = format!("onnxruntime: {} (failed: ", fake.display());
+    assert!(
+        stdout.lines().any(|l| l.starts_with(&prefix) && l.ends_with(')')),
+        "no line starting with {prefix:?} in:\n{stdout}"
+    );
+}
+
+#[test]
+fn doctor_reports_failure_when_no_onnxruntime_is_configured_or_beside_the_binary() {
+    let exe = Path::new(env!("CARGO_BIN_EXE_openflow"));
+    let beside = ["libonnxruntime.so", "libonnxruntime.dylib", "onnxruntime.dll"]
+        .iter()
+        .any(|name| exe.with_file_name(name).is_file());
+    if beside {
+        return;
+    }
+    let dir = scratch("unset");
+    let stdout = doctor(None, &dir);
+    assert!(
+        stdout.lines().any(|l| l.starts_with("onnxruntime: ORT_DYLIB_PATH is not set (failed: ") && l.ends_with(')')),
+        "no ORT_DYLIB_PATH-not-set failure line in:\n{stdout}"
+    );
+}
+
+#[test]
+#[ignore = "needs ORT_DYLIB_PATH pointing at a real libonnxruntime"]
+fn doctor_reports_a_working_onnxruntime_as_loads() {
+    let real = std::env::var_os("ORT_DYLIB_PATH")
+        .map(PathBuf::from)
+        .filter(|p| p.is_file())
+        .expect("ORT_DYLIB_PATH must point at a real libonnxruntime file");
+    let dir = scratch("working");
+    let stdout = doctor(Some(&real), &dir);
+    let want = format!("onnxruntime: {} (loads)", real.display());
+    assert!(stdout.lines().any(|l| l == want), "no line {want:?} in:\n{stdout}");
+}

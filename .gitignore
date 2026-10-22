@@ -16,3 +16,4 @@ pi.log
 /demo
 *.log
 !.audit/*.log
+/.verify

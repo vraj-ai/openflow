@@ -22,12 +22,9 @@
 
 ## Demo
 
-<!-- TODO(demo): the demo video is still rendering. When ready:
-     1. add assets/demo.mp4 (<25 MB) and a ~10 s highlight assets/demo.gif (<8 MB)
-     2. replace this block with:
-        <p align="center"><img src="assets/demo.gif" alt="OpenFlow dictation demo" width="800"></p>
-        and link the full video: [Watch the full demo (MP4)](assets/demo.mp4) -->
-<p align="center"><i>Demo video coming soon.</i></p>
+<p align="center"><img src="assets/demo.gif" alt="Animated OpenFlow demo: a mock Slack window and the filler-word cleanup shown on the CLI" width="800"></p>
+
+[Watch the full demo (MP4)](assets/demo.mp4)
 
 ## Why OpenFlow?
 
@@ -57,15 +54,14 @@
 
 ## OpenFlow vs Wispr Flow
 
-Facts only. Wispr Flow details from [wisprflow.ai/pricing](https://wisprflow.ai/pricing), checked 2026-10-20.
+Facts only. The Wispr Flow price comes from [wisprflow.ai/pricing](https://wisprflow.ai/pricing). The other Wispr Flow claims link to its help center pages. All checked 2026-10-21.
 
 | | OpenFlow | Wispr Flow |
 |---|---|---|
 | Price | Free (MIT) | Free tier; Pro listed at $12/user/mo billed annually ($15 monthly) |
 | Source code | Open source (MIT) | Proprietary |
-| Where speech is processed | On your device | Cloud service |
-| Account required | No | Yes |
-| Works offline | Yes, after models are downloaded | No |
+| Where speech is processed | On your device | Cloud service (["Dictation is transcribed in the cloud"](https://docs.wisprflow.ai/articles/4048537120-what-to-expect-from-flow-accuracy-and-known-limitations)) |
+| Works offline | Yes, after models are downloaded | No ([internet connection required for transcription](https://docs.wisprflow.ai/articles/2772472373-what-is-flow); on Android, [offline transcription is unavailable](https://docs.wisprflow.ai/articles/6344532666-android-system-requirements)) |
 | Choose your own models | Yes (speech + cleanup) | No |
 | Platforms | macOS, Windows, Linux (X11) — from source | Vendor-supported apps |
 | Polished GUI / signed installer | Not yet (CLI + daemon) | Yes |
